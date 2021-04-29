@@ -1,0 +1,661 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="python正则表达式的用途不过多赘述 python正则表达式的实现主要是通过python的re库，re库是python的标准库，所以无须安装 1.正则表达式的常用操作符    操作符 说明 实例    . 表示任何单个字符    [ ] 字符集，对单个字符给出取值范围 [abc]表示a、b、c，[a‐z]表示a到z单个字符   [^ ] 非字符集，对单个字符给出排除范围 [^abc]表示非a或b">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Python正则表达式">
+<meta property="og:url" content="https://mingliangliu.com/2019/10/09/Python%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="python正则表达式的用途不过多赘述 python正则表达式的实现主要是通过python的re库，re库是python的标准库，所以无须安装 1.正则表达式的常用操作符    操作符 说明 实例    . 表示任何单个字符    [ ] 字符集，对单个字符给出取值范围 [abc]表示a、b、c，[a‐z]表示a到z单个字符   [^ ] 非字符集，对单个字符给出排除范围 [^abc]表示非a或b">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-10-09T13:11:38.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.402Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="正则表达式">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/10/09/Python%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Python正则表达式 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/10/09/Python%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Python正则表达式
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-10-09 21:11:38" itemprop="dateCreated datePublished" datetime="2019-10-09T21:11:38+08:00">2019-10-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" itemprop="url" rel="index"><span itemprop="name">正则表达式</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>python正则表达式的用途不过多赘述</p>
+<p>python正则表达式的实现主要是通过python的re库，re库是python的标准库，所以无须安装</p>
+<p>1.正则表达式的常用操作符</p>
+<table>
+<thead>
+<tr>
+<th>操作符</th>
+<th>说明</th>
+<th>实例</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>.</td>
+<td>表示任何单个字符</td>
+<td></td>
+</tr>
+<tr>
+<td>[ ]</td>
+<td>字符集，对单个字符给出取值范围</td>
+<td>[abc]表示a、b、c，[a‐z]表示a到z单个字符</td>
+</tr>
+<tr>
+<td>[^ ]</td>
+<td>非字符集，对单个字符给出排除范围</td>
+<td>[^abc]表示非a或b或c的单个字符</td>
+</tr>
+<tr>
+<td>*</td>
+<td>前一个字符0次或无限次扩展</td>
+<td>abc* 表示ab、abc、abcc、abccc等</td>
+</tr>
+<tr>
+<td>+</td>
+<td>前一个字符1次或无限次扩展</td>
+<td>abc+ 表示abc、abcc、abccc等</td>
+</tr>
+<tr>
+<td>?</td>
+<td>前一个字符0次或1次扩展</td>
+<td>abc? 表示ab、abc</td>
+</tr>
+<tr>
+<td>&#124;</td>
+<td>左右表达式任意一个</td>
+<td>abc&#124;def表示abc、def</td>
+</tr>
+<tr>
+<td>{m}</td>
+<td>扩展前一个字符m次</td>
+<td>ab{2}c表示abbc</td>
+</tr>
+<tr>
+<td>{m,n}</td>
+<td>扩展前一个字符m至n次（含n）</td>
+<td>ab{1,2}c表示abc、abbc</td>
+</tr>
+<tr>
+<td>^</td>
+<td>匹配字符串开头</td>
+<td>^abc表示abc且在一个字符串的开头</td>
+</tr>
+<tr>
+<td>$</td>
+<td>匹配字符串结尾</td>
+<td>abc$表示abc且在一个字符串的结尾</td>
+</tr>
+<tr>
+<td>( )</td>
+<td>分组标记，内部只能使用</td>
+<td>操作符&#124;(abc)表示abc，(abc&#124;def)表示abc、def</td>
+</tr>
+<tr>
+<td>\d</td>
+<td>数字，等价于[0‐9]</td>
+<td></td>
+</tr>
+<tr>
+<td>\w</td>
+<td>单词字符，等价于[A‐Za‐z0‐9_]</td>
+<td></td>
+</tr>
+</tbody></table>
+<p>2.re库的使用</p>
+<p>主要功能函数</p>
+<table>
+<thead>
+<tr>
+<th>函数</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>re.search()</td>
+<td>在一个字符串中搜索匹配正则表达式的第一个位置，匹配成功返回match对象，否则返回None</td>
+</tr>
+<tr>
+<td>re.match()</td>
+<td>从一个字符串的开始位置起匹配正则表达式，匹配成功返回match对象，否则返回None</td>
+</tr>
+<tr>
+<td>re.findall()</td>
+<td>搜索字符串，以列表类型返回全部能匹配的子串</td>
+</tr>
+<tr>
+<td>re.split()</td>
+<td>将一个字符串按照正则表达式匹配结果进行分割，返回列表类型</td>
+</tr>
+<tr>
+<td>re.finditer()</td>
+<td>搜索字符串，返回一个匹配结果的迭代类型，每个迭代元素是match对象</td>
+</tr>
+<tr>
+<td>re.sub()</td>
+<td>在一个字符串中替换所有匹配正则表达式的子串，返回替换后的字符串</td>
+</tr>
+</tbody></table>
+<p>更详细的说明请参考<a target="_blank" rel="noopener" href="https://docs.python.org/zh-cn/3.7/library/re.html">Python re文档</a></p>
+<p>例如：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">re.search(pattern,string,flags=<span class="number">0</span>)</span><br></pre></td></tr></table></figure>
+
+<p>其中：</p>
+<ul>
+<li>pattern : 正则表达式的字符串或原生字符串表示 </li>
+<li>string : 待匹配字符串 </li>
+<li>flags : 正则表达式使用时的控制标记</li>
+</ul>
+<table>
+<thead>
+<tr>
+<th>常用标记</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>re.I或re.IGNORECASE</td>
+<td>忽略正则表达式的大小写，[A‐Z]能够匹配小写字符</td>
+</tr>
+<tr>
+<td>re.M或re.MULTILINE</td>
+<td>正则表达式中的^操作符能够将给定字符串的每行当作匹配开始</td>
+</tr>
+<tr>
+<td>re.S或re.DOTALL</td>
+<td>正则表达式中的.操作符能够匹配所有字符，默认匹配除换行外的所有字符</td>
+</tr>
+</tbody></table>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">import</span> re</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>m = re.search(<span class="string">r&#x27;[1-9]\d&#123;5&#125;&#x27;</span>, <span class="string">&#x27;abc1234567&#x27;</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">if</span> m:</span><br><span class="line"><span class="meta">... </span>    m.group(<span class="number">0</span>)</span><br><span class="line">...</span><br><span class="line"><span class="string">&#x27;123456&#x27;</span></span><br></pre></td></tr></table></figure>
+<p>还有一种写法是这样的</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">import</span> re</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>t = re.<span class="built_in">compile</span>(<span class="string">r&#x27;[1-9]\d&#123;5&#125;&#x27;</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>m = t.search(<span class="string">&#x27;abc1234567&#x27;</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span><span class="keyword">if</span> m:</span><br><span class="line"><span class="meta">... </span>    m.group(<span class="number">0</span>)</span><br><span class="line">...</span><br><span class="line"><span class="string">&#x27;123456&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>第二种写法的好处是：当要对一个正则表达式进行多次字符串匹配时，可以只编译一次，匹配多次，可以提升效率</p>
+<p>3.Match对象</p>
+<table>
+<thead>
+<tr>
+<th>属性</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>.string</td>
+<td>待匹配的文本</td>
+</tr>
+<tr>
+<td>.re</td>
+<td>匹配时使用的patter对象（正则表达式）</td>
+</tr>
+<tr>
+<td>.pos</td>
+<td>正则表达式搜索文本的开始位置</td>
+</tr>
+<tr>
+<td>.endpos</td>
+<td>正则表达式搜索文本的结束位置</td>
+</tr>
+<tr>
+<td>.group()</td>
+<td>获得匹配后的字符串</td>
+</tr>
+<tr>
+<td>.start()</td>
+<td>匹配字符串在原始字符串的开始位置</td>
+</tr>
+<tr>
+<td>.end()</td>
+<td>匹配字符串在原始字符串的结束位置</td>
+</tr>
+<tr>
+<td>.span()</td>
+<td>返回(.start(), .end())</td>
+</tr>
+<tr>
+<td></td>
+<td></td>
+</tr>
+</tbody></table>
+<p>4.re库的贪婪匹配</p>
+<p>re库默认采用贪婪匹配，即输出匹配长的子串</p>
+<p>例如</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>match = re.search(<span class="string">r&#x27;PY.*N&#x27;</span>, <span class="string">&#x27;PYANBNCNDN&#x27;</span>)   </span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>match.group(<span class="number">0</span>)   </span><br><span class="line"><span class="string">&#x27;PYANBNCNDN&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>那么，如何输出最小的匹配呢</p>
+<p>可以在<code>.*</code>后面加个<code>?</code>，就像这样</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>match = re.search(<span class="string">r&#x27;PY.*?N&#x27;</span>, <span class="string">&#x27;PYANBNCNDN&#x27;</span>)   </span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>match.group(<span class="number">0</span>) </span><br><span class="line"><span class="string">&#x27;PYAN&#x27;</span></span><br></pre></td></tr></table></figure>
+
+<p>还有一些其他的操作符</p>
+<table>
+<thead>
+<tr>
+<th>操作符</th>
+<th>说明</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>*?</td>
+<td>前一个字符0次或无限次扩展，小匹配</td>
+</tr>
+<tr>
+<td>+?</td>
+<td>前一个字符1次或无限次扩展，小匹配</td>
+</tr>
+<tr>
+<td>??</td>
+<td>前一个字符0次或1次扩展，小匹配</td>
+</tr>
+<tr>
+<td>{m,n}?</td>
+<td>扩展前一个字符m至n次（含n），最小匹配</td>
+</tr>
+</tbody></table>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" rel="tag"># 正则表达式</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/08/%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" rel="prev" title="正则表达式">
+      <i class="fa fa-chevron-left"></i> 正则表达式
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/10/14/make%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B/" rel="next" title="make工具简介">
+      make工具简介 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

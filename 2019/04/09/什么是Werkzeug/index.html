@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="上一节介绍了什么是WSGI，这一节我们看看Werkzeug 按照官方的说法，Werkzeug(源自德语，工具的意思)是一个WSGI工具库，它开始于一个适用于WSGI的多样化的工具集，后来发展成了现在非常流行的WSGI工具库。Werkzeug可以在程序中单独使用，也作为许多Python Web框架的底层库，例如现在非常流行的Flask Web框架。 Werkzeug的基本功能正如官方的说法，Werk">
+<meta property="og:type" content="article">
+<meta property="og:title" content="什么是Werkzeug">
+<meta property="og:url" content="https://mingliangliu.com/2019/04/09/%E4%BB%80%E4%B9%88%E6%98%AFWerkzeug/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="上一节介绍了什么是WSGI，这一节我们看看Werkzeug 按照官方的说法，Werkzeug(源自德语，工具的意思)是一个WSGI工具库，它开始于一个适用于WSGI的多样化的工具集，后来发展成了现在非常流行的WSGI工具库。Werkzeug可以在程序中单独使用，也作为许多Python Web框架的底层库，例如现在非常流行的Flask Web框架。 Werkzeug的基本功能正如官方的说法，Werk">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-04-09T15:08:37.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.404Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="Python">
+<meta property="article:tag" content="Web">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/04/09/%E4%BB%80%E4%B9%88%E6%98%AFWerkzeug/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>什么是Werkzeug | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/04/09/%E4%BB%80%E4%B9%88%E6%98%AFWerkzeug/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          什么是Werkzeug
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-04-09 23:08:37" itemprop="dateCreated datePublished" datetime="2019-04-09T23:08:37+08:00">2019-04-09</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Python/" itemprop="url" rel="index"><span itemprop="name">Python</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>上一节介绍了<a href="/2019/04/06/%E4%BB%80%E4%B9%88%E6%98%AFWSGI/#more">什么是WSGI</a>，这一节我们看看Werkzeug</p>
+<p>按照官方的说法，Werkzeug(源自德语，工具的意思)是一个WSGI工具库，它开始于一个适用于WSGI的多样化的工具集，后来发展成了现在非常流行的WSGI工具库。Werkzeug可以在程序中单独使用，也作为许多Python Web框架的底层库，例如现在非常流行的Flask Web框架。</p>
+<h2 id="Werkzeug的基本功能"><a href="#Werkzeug的基本功能" class="headerlink" title="Werkzeug的基本功能"></a>Werkzeug的基本功能</h2><p>正如官方的说法，Werkzeug提供了非常丰富的功能，但是其功能总的可分为两个方面：开发测试方面的功能和其用于Web程序中的工具函数及工具类</p>
+<h3 id="开发测试方面"><a href="#开发测试方面" class="headerlink" title="开发测试方面"></a>开发测试方面</h3><p>一、Werkzeug提供了一个简易的开发用服务器<br>二、Werkzeug提供了一些测试工具，如<code>Client</code>类、<code>EnvironBuilder</code>类。<br>三、Werkzeug提供了Debug的工具，提供了可用于Debug的中间件。当程序出错时，并不会返回500错误，而是显示程序出错的地方以及出错的原因，这就为程序的开发提供了方便。</p>
+<h3 id="工具方面"><a href="#工具方面" class="headerlink" title="工具方面"></a>工具方面</h3><p>Werkzeug主要提供了如下几种工具</p>
+<h4 id="一、请求和相应对象。"><a href="#一、请求和相应对象。" class="headerlink" title="一、请求和相应对象。"></a>一、请求和相应对象。</h4><p>提供了<code>Request</code>和<code>Response</code>。<code>Request</code>可以包装WSGI服务器传入的<code>environ</code>参数，并对其进行进一步的解析，以使我们更容易的使用请求中的参数。<code>Response</code>可以根据传入的参数，来发起一个特定的响应。你可以认为<code>Response</code>是你可以创建的另一个标准的WSGI应用，这个应用可以根据你传入的参数，来帮你做发起响应这件事。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> werkzeug.wrappers <span class="keyword">import</span> Request, Response</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">application</span>(<span class="params">environ, start_response</span>):</span></span><br><span class="line">    request = Request(environ)</span><br><span class="line">    response = Response(<span class="string">&quot;Hello %s!&quot;</span> % request.args.get(<span class="string">&#x27;name&#x27;</span>, <span class="string">&#x27;World!&#x27;</span>))</span><br><span class="line">    <span class="keyword">return</span> response(environ, start_response)</span><br></pre></td></tr></table></figure>
+
+<h4 id="二、路由解析。"><a href="#二、路由解析。" class="headerlink" title="二、路由解析。"></a>二、路由解析。</h4><p>Werkzeug提供了强大的路由解析功能。比如Flask框架中经常用到的<code>Rule</code>、<code>Map</code>类等。</p>
+<p>如下面一个程序。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> werkzeug.routing <span class="keyword">import</span> Map, Rule, NotFound, RequestRedirect</span><br><span class="line"></span><br><span class="line">url_map = Map([</span><br><span class="line">    Rule(<span class="string">&#x27;/&#x27;</span>, endpoint=<span class="string">&#x27;blog/index&#x27;</span>),</span><br><span class="line">    Rule(<span class="string">&#x27;/&lt;int:year&gt;/&lt;int:month&gt;/&lt;int:day&gt;/&#x27;</span>, endpoint=<span class="string">&#x27;blog/archive&#x27;</span>),</span><br><span class="line">    Rule(<span class="string">&#x27;/about&#x27;</span>, endpoint=<span class="string">&#x27;blog/about_me&#x27;</span>),</span><br><span class="line">    Rule(<span class="string">&#x27;/feeds/&lt;feed_name&gt;.rss&#x27;</span>, endpoint=<span class="string">&#x27;blog/show_feed&#x27;</span>)</span><br><span class="line">])</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">application</span>(<span class="params">environ, start_response</span>):</span></span><br><span class="line">    urls = url_map.bind_to_environ(environ)</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        endpoint, args = urls.match()</span><br><span class="line">    <span class="keyword">except</span> HTTPException, e:</span><br><span class="line">        <span class="keyword">return</span> e(environ, start_response)</span><br><span class="line">    start_response(<span class="string">&#x27;200 OK&#x27;</span>, [(<span class="string">&#x27;Content-Type&#x27;</span>, <span class="string">&#x27;text/plain&#x27;</span>)])</span><br><span class="line">    <span class="keyword">return</span> [<span class="string">&#x27;Rule points to %r with arguments %r&#x27;</span> % (endpoint, args)]</span><br></pre></td></tr></table></figure>
+
+<p>我们创建了一个<code>Map</code>类实例<code>url_map</code>来保存一系列的URL规则。并且给它传递了一个<code>Rule</code>对象的列表。其中，每个<code>Rule</code>对象都包含两个参数：一个字符串和<code>endpoint</code>。字符串代表了URL匹配的规则（也叫路由规则），<code>endpoint</code>（也叫端点）代表了该路由规则对应的视图函数。即当对一个URL匹配成功后，便可获取到它对应的视图函数。不同的规则可以对应相同的<code>endpoint</code>，但是必须有不同的参数用于URL的构建，不能产生歧义，类似于函数的重载。</p>
+<p>在<code>application</code>函数中，我们使用<code>Map</code>的<code>bind_to_environ</code>方法将<code>url_map</code>与<code>environ</code>绑定，这会返回给我们一个新的<code>MapAdapter</code>对象，这个对象可用于URL的匹配。随后，我们调用<code>MapAdapter</code>对象中的<code>match()</code>方法，获取<strong>当前请求</strong>的URL匹配到的<code>endpoint</code>和其参数信息，最后，我们用获取到的<code>endpoint</code>和参数信息发起一个响应。</p>
+<p>用于匹配URL的路由规则字符串是由基本的URL加上占位符组成的。</p>
+<p>例如<code>Rule(&#39;/pages/&lt;path:page&gt;&#39;)</code>，尖括号中，冒号后面为变量名，前面为变量的类型。<code>path</code>类型表示只匹配路径。这里的<code>path</code>也可以是<code>int</code>，表示匹配一个整型以及<code>float</code>等。</p>
+<p>当不包含尖括号中的变量不写明类型时，如<code>Rule(&#39;/pages/&lt;page&gt;&#39;)</code>，这里的<code>page</code>可以匹配任何字符串，但是只能就受一个路径段，因此不能含有<code>/</code>。</p>
+<p>更详细的规则还请参见<a target="_blank" rel="noopener" href="https://werkzeug.palletsprojects.com/en/0.15.x/routing/">文档</a></p>
+<h4 id="三、本地上下文"><a href="#三、本地上下文" class="headerlink" title="三、本地上下文"></a>三、本地上下文</h4><p>在许多Web程序中，本地上下文是个非常重要的概念。而实现本地上下文需要用到不同线程间数据的隔离。<code>werkzeug.local</code>中定义了<code>Local</code>、<code>LocalStack</code>和<code>LocalProxy</code>等类用于实现全局数据的隔离。</p>
+<p>在Python中，我们可以使用<code>thread locals</code>来保证多线程状态下数据的隔离，但是这在Web程序中，却并不是很好使。</p>
+<ul>
+<li>一是因为有些Web应用是使用协程实现的，无法保证数据的隔离。</li>
+<li>二是即使使用的是线程，WSGI也不能保证每次请求使用的线程都是一个全新的线程，可能是一个<strong>之前请求</strong>的线程，而里面的数据也是原线程剩下的。</li>
+</ul>
+<p>所以，Werkzeug给我们提供了<code>Local</code>这个更好用的解决工具。</p>
+<p>下面是一个如何使用<code>werkzeug.local</code>例子：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> werkzeug.local <span class="keyword">import</span> Local, LocalManager</span><br><span class="line"></span><br><span class="line">local = Local()</span><br><span class="line">local_manager = LocalManager([local])</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">application</span>(<span class="params">environ, start_response</span>):</span></span><br><span class="line">    local.request = request = Request(environ)</span><br><span class="line">    ...</span><br><span class="line"></span><br><span class="line">application = local_manager.make_middleware(application)</span><br></pre></td></tr></table></figure>
+
+<p>可以看到，我们把一个<code>Request</code>对象赋值给了全局对象<code>local.request</code>，这样，我们就可以在全局范围内使用<code>local.request</code>，而且获取到的仅仅是当前请求的数据。因为<code>Local</code>对象不会在请求结束后自动清除本地上下文，所以这里我们需要使用<code>LocalManager</code>来管理。我们需要将管理的<code>Local</code>对象以列表的方式传给<code>LocalManager</code>，并在最后使用<code>LocalManager</code>的<code>make_middleware</code>方法为WSGI程序添加中间件，来使请求结束后自动清除本次请求的数据。</p>
+<p>那么<code>Local</code>是如何实现的呢？其实很简单，在<code>Local</code>中，重写了<code>__getattr__</code>和<code>__setattr__</code>方法，使得在获取数据和存储数据之前，先获取到线程id（或协程id），以线程id（或协程id）为键，数据为值，存储在一个字典中。这样我们在操作数据的时候，操作的只会是当前线程（或协程）的数据，从而实现了数据隔离。感兴趣的同学可以查看一下文末<code>Local</code>的源码。</p>
+<p><code>LocalStack</code>对<code>Local</code>进行了封装，使其可以以栈的方式使用。如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls = LocalStack()</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.push(<span class="number">42</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.top</span><br><span class="line"><span class="number">42</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.push(<span class="number">23</span>)</span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.top</span><br><span class="line"><span class="number">23</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.pop()</span><br><span class="line"><span class="number">23</span></span><br><span class="line"><span class="meta">&gt;&gt;&gt; </span>ls.top</span><br><span class="line"><span class="number">42</span></span><br></pre></td></tr></table></figure>
+
+<p><code>LocalProxy</code>类用于实现werkzeug本地代理，将所有的操作转发给代理对象。如果你熟悉C++的话，你会发现这和C++的引用很像，但比引用更强大。使用方法如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> werkzeug.local <span class="keyword">import</span> Local</span><br><span class="line">l = Local()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 以下是两个代理</span></span><br><span class="line">request = l(<span class="string">&#x27;request&#x27;</span>) <span class="comment"># Local中实现了__call__方法，用于返回一个代理，具体可以查看文末Local的源码</span></span><br><span class="line">user = l(<span class="string">&#x27;user&#x27;</span>)</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="keyword">from</span> werkzeug.local <span class="keyword">import</span> LocalStack</span><br><span class="line">_response_local = LocalStack()</span><br><span class="line"></span><br><span class="line"><span class="comment"># 这也是个代理</span></span><br><span class="line">response = _response_local() <span class="comment"># 同理，LocalStack返回的也是代理</span></span><br></pre></td></tr></table></figure>
+
+<p>除了以上创建代理的方式外，还可以手动创建一个代理</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">from</span> werkzeug.local <span class="keyword">import</span> Local, LocalProxy</span><br><span class="line">local = Local()</span><br><span class="line">request = LocalProxy(local, <span class="string">&#x27;request&#x27;</span>)</span><br></pre></td></tr></table></figure>
+
+<p>如果你想拥有一个根据指定函数来返回不同的对象代理，也是支持的。</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">session = LocalProxy(<span class="keyword">lambda</span>: get_current_request().session)</span><br></pre></td></tr></table></figure>
+
+<p>但我们为什么要使用代理呢。这里简单说一下，我们知道，一个变量被赋值后如果不重新赋值，它的值是不会改变的，那么这在程序的某些地方就会变得很不方便。但是如果使用代理的话，那么我们在使用这个变量的时候就能动态的获取到它所代理的对象的最新的值。</p>
+<h4 id="四、其他"><a href="#四、其他" class="headerlink" title="四、其他"></a>四、其他</h4><p>除了上面三个方面外，Werkzeug还提供了很多工具，例如WSGI中间件、HTTP异常类、数据结构等。这里就不在一一详述，感兴趣的同学可以参考<a target="_blank" rel="noopener" href="https://werkzeug.palletsprojects.com/en/0.15.x/">文档</a>。</p>
+<hr>
+<p><code>Local</code>对象部分源码：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br></pre></td><td class="code"><pre><span class="line"><span class="keyword">try</span>:</span><br><span class="line">    <span class="keyword">from</span> greenlet <span class="keyword">import</span> getcurrent <span class="keyword">as</span> get_ident</span><br><span class="line"><span class="keyword">except</span> ImportError:</span><br><span class="line">    <span class="keyword">try</span>:</span><br><span class="line">        <span class="keyword">from</span> thread <span class="keyword">import</span> get_ident</span><br><span class="line">    <span class="keyword">except</span> ImportError:</span><br><span class="line">        <span class="keyword">from</span> _thread <span class="keyword">import</span> get_ident</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Local</span>(<span class="params"><span class="built_in">object</span></span>):</span></span><br><span class="line">    __slots__ = (<span class="string">&#x27;__storage__&#x27;</span>, <span class="string">&#x27;__ident_func__&#x27;</span>)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__init__</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="built_in">object</span>.__setattr__(self, <span class="string">&#x27;__storage__&#x27;</span>, &#123;&#125;)</span><br><span class="line">        <span class="built_in">object</span>.__setattr__(self, <span class="string">&#x27;__ident_func__&#x27;</span>, get_ident)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__iter__</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">return</span> <span class="built_in">iter</span>(self.__storage__.items())</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__call__</span>(<span class="params">self, proxy</span>):</span></span><br><span class="line">        <span class="string">&quot;&quot;&quot;Create a proxy for a name.&quot;&quot;&quot;</span></span><br><span class="line">        <span class="keyword">return</span> LocalProxy(self, proxy)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__release_local__</span>(<span class="params">self</span>):</span></span><br><span class="line">        self.__storage__.pop(self.__ident_func__(), <span class="literal">None</span>)  <span class="comment"># 清除数据</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__getattr__</span>(<span class="params">self, name</span>):</span></span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            <span class="keyword">return</span> self.__storage__[self.__ident_func__()][name]</span><br><span class="line">        <span class="keyword">except</span> KeyError:</span><br><span class="line">            <span class="keyword">raise</span> AttributeError(name)</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__setattr__</span>(<span class="params">self, name, value</span>):</span></span><br><span class="line">        ident = self.__ident_func__()</span><br><span class="line">        storage = self.__storage__</span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            storage[ident][name] = value</span><br><span class="line">        <span class="keyword">except</span> KeyError:</span><br><span class="line">            storage[ident] = &#123;name: value&#125;</span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__delattr__</span>(<span class="params">self, name</span>):</span></span><br><span class="line">        <span class="keyword">try</span>:</span><br><span class="line">            <span class="keyword">del</span> self.__storage__[self.__ident_func__()][name]</span><br><span class="line">        <span class="keyword">except</span> KeyError:</span><br><span class="line">            <span class="keyword">raise</span> AttributeError(name)</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>参考：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.jianshu.com/p/3f38b777a621">Werkzeug(Flask)之Local、LocalStack和LocalProxy</a></li>
+<li><a target="_blank" rel="noopener" href="https://werkzeug.palletsprojects.com/en/0.15.x/">Werkzeug0.15.x文档</a></li>
+</ul>
+<p>本篇参考Werkzeug文档写成，如有错误或与文档不符的地方，还请以文档为准，也欢迎您反馈给我。</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Python/" rel="tag"># Python</a>
+              <a href="/tags/Web/" rel="tag"># Web</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/06/%E4%BB%80%E4%B9%88%E6%98%AFWSGI/" rel="prev" title="什么是WSGI">
+      <i class="fa fa-chevron-left"></i> 什么是WSGI
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/04/19/Flask%E6%BA%90%E7%A0%81%E6%B5%85%E6%9E%90/" rel="next" title="Flask源码浅析">
+      Flask源码浅析 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Werkzeug%E7%9A%84%E5%9F%BA%E6%9C%AC%E5%8A%9F%E8%83%BD"><span class="nav-number">1.</span> <span class="nav-text">Werkzeug的基本功能</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%BC%80%E5%8F%91%E6%B5%8B%E8%AF%95%E6%96%B9%E9%9D%A2"><span class="nav-number">1.1.</span> <span class="nav-text">开发测试方面</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B7%A5%E5%85%B7%E6%96%B9%E9%9D%A2"><span class="nav-number">1.2.</span> <span class="nav-text">工具方面</span></a><ol class="nav-child"><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%80%E3%80%81%E8%AF%B7%E6%B1%82%E5%92%8C%E7%9B%B8%E5%BA%94%E5%AF%B9%E8%B1%A1%E3%80%82"><span class="nav-number">1.2.1.</span> <span class="nav-text">一、请求和相应对象。</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%BA%8C%E3%80%81%E8%B7%AF%E7%94%B1%E8%A7%A3%E6%9E%90%E3%80%82"><span class="nav-number">1.2.2.</span> <span class="nav-text">二、路由解析。</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E4%B8%89%E3%80%81%E6%9C%AC%E5%9C%B0%E4%B8%8A%E4%B8%8B%E6%96%87"><span class="nav-number">1.2.3.</span> <span class="nav-text">三、本地上下文</span></a></li><li class="nav-item nav-level-4"><a class="nav-link" href="#%E5%9B%9B%E3%80%81%E5%85%B6%E4%BB%96"><span class="nav-number">1.2.4.</span> <span class="nav-text">四、其他</span></a></li></ol></li></ol></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

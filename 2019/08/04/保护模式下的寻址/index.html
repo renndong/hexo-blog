@@ -1,0 +1,501 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在汇编语言中，或者你有学习过诸如微机原理或计算机组成原理等课程的话，那么你很可能听说过实模式和保护模式的概念。他们到底是什么，有什么不同，又如何寻址？ 在王爽的《汇编语言》最后，有关于Intel微处理器的三种工作模式的介绍。 继Intel 8086推出之后，Intel又推出了划时代的80386微处理器，它可以在实模式、保护模式和虚拟8086模式下工作，从那以后的微处理器都提供了这三种工作模式，直到">
+<meta property="og:type" content="article">
+<meta property="og:title" content="保护模式下的寻址">
+<meta property="og:url" content="https://mingliangliu.com/2019/08/04/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%80/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="在汇编语言中，或者你有学习过诸如微机原理或计算机组成原理等课程的话，那么你很可能听说过实模式和保护模式的概念。他们到底是什么，有什么不同，又如何寻址？ 在王爽的《汇编语言》最后，有关于Intel微处理器的三种工作模式的介绍。 继Intel 8086推出之后，Intel又推出了划时代的80386微处理器，它可以在实模式、保护模式和虚拟8086模式下工作，从那以后的微处理器都提供了这三种工作模式，直到">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%9A%84%E5%AF%BB%E5%9D%801.jpg">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%804.jpg">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%802.jpg">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%803.jpg">
+<meta property="article:published_time" content="2019-08-04T12:20:03.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.405Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="汇编">
+<meta property="article:tag" content="保护模式">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%9A%84%E5%AF%BB%E5%9D%801.jpg">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/08/04/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%80/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>保护模式下的寻址 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/08/04/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%80/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          保护模式下的寻址
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-04 20:20:03" itemprop="dateCreated datePublished" datetime="2019-08-04T20:20:03+08:00">2019-08-04</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%B1%87%E7%BC%96/" itemprop="url" rel="index"><span itemprop="name">汇编</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在汇编语言中，或者你有学习过诸如微机原理或计算机组成原理等课程的话，那么你很可能听说过实模式和保护模式的概念。他们到底是什么，有什么不同，又如何寻址？</p>
+<p>在王爽的《汇编语言》最后，有关于Intel微处理器的三种工作模式的介绍。</p>
+<p>继Intel 8086推出之后，Intel又推出了划时代的80386微处理器，它可以在实模式、保护模式和虚拟8086模式下工作，从那以后的微处理器都提供了这三种工作模式，直到现在。Intel系列微处理器的三种工作模式如下：</p>
+<ul>
+<li>实模式：工作模式相当于一个8086</li>
+<li>保护模式：提供支持多任务环境的工作方式，建立保护机制</li>
+<li>虚拟8086模式：可以从保护模式切换至其中的一种8086工作方式，这种方式的提供使用户可以方便的在保护模式下运行一个或多个8086程序</li>
+</ul>
+<p>当我们的系统开机时，cpu首先工作在实模式下完成一些工作，之后跳入保护模式，为我们的系统提供多任务环境的支持。而当我们需要在保护模式的系统上运行实模式下的程序时（比如学习汇编时所用的DOS系统），我们就需要在当前的保护模式下弄一个“假”的实模式，这就是虚拟8086模式。</p>
+<h2 id="GDT和描述符"><a href="#GDT和描述符" class="headerlink" title="GDT和描述符"></a>GDT和描述符</h2><p>在实模式下（可以理解为工作在8086上时），我们的CPU是16位的，提供了16位的寄存器，16位数据总线，20位的地址总线，可寻址范围位1M。物理地址遵循下面的计算公式：</p>
+<p>$$<br>物理地址 = 段地址 * 16 + 偏移地址<br>$$</p>
+<p>其中的段地址和偏移地址都是16位的。</p>
+<p>从80386开始，Intel家族的CPU进入了32位时代，这时候CPU有32位的地址总线，所以可寻址范围为4G。CPU同样拥有的是32位的寄存器，一个寄存器即可寻址4GB的空间。</p>
+<p>在实模式下，我们采用<strong>段地址:偏移地址</strong>的寻址方式是因为我们只有16为的寄存器，单个寄存器的寻址范围达不到1MB，但现在我们拥有了32位的寄存器，单个寄存器的可寻址范围已经可以达到4GB了，那么是不是就不需要段寄存器了？答案是否定的。在保护模式下，地址仍然采用“段地址:偏移地址”的方式来表示，只是<strong>段的概念发生了根本性的变化</strong>。</p>
+<p>实模式下，段值（段地址的值）还是地址的一部分。在保护模式下，虽然段值仍然由原来的<strong>16位</strong>的cs、ds等寄存器表示，但是此时它们仅仅是一个索引，这些个索引<strong>指向一个数据结构的表项</strong>，表项中详细定义了一个段的起始地址、界限、属性等内容，这个数据结构，叫做<strong>GDT</strong>（其实还可能是LDT，我们先讨论大多数情况），GDT中的每一个表项，叫做<strong>描述符</strong></p>
+<h2 id="寻址过程"><a href="#寻址过程" class="headerlink" title="寻址过程"></a>寻址过程</h2><p>我们在来看一下保护模式下的寻址过程。在此之前，有几点要说明：</p>
+<ul>
+<li>GDT是一个数据结构，它是保存在内存中的，所以它应该有一个起始地址，它是一系列描述符的集合</li>
+<li>GDT的起始地址由一个专门的寄存器来存放 – gdtr，gdtr寄存器是48位的，这个寄存器我们稍后在探讨</li>
+<li>GDT中的每一个描述符描述一个段，其中包括段的起始地址（基址）等属性</li>
+<li>保护模式的偏移地址和实模式下的是相同的，只不过是32位</li>
+</ul>
+<p>好了，下面有一张图，我们可以看着这张图过一遍保护模式下是如何寻址的。</p>
+<img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%9A%84%E5%AF%BB%E5%9D%801.jpg" class="">
+
+<ol>
+<li>寻址时，先找到gdtr寄存器，从中得到GDT的基址</li>
+<li>有了GDT的基址，又有段寄存器中保存的索引，可以得到段寄存器“所指”的那个表项，既所指的那个描述符</li>
+<li>得到了描述符，就可以从描述符中得到该描述符所描述的那个段的起始地址</li>
+<li>有了段的起始地址，将偏移地址拿过来与之相加，便能得到最后的<strong>线性地址</strong></li>
+<li>有了线性地址（虚拟地址），经过变换，即可得到相应的物理地址</li>
+</ol>
+<p>相信到这里，你已经对寻址过程有了个大概的了解，然后我们看看我们上面所未详细提及的东西</p>
+<h2 id="gdtr寄存器"><a href="#gdtr寄存器" class="headerlink" title="gdtr寄存器"></a>gdtr寄存器</h2><p>gdtr是一个48位的寄存器，其中保存了GDT的基地址和界限（或者说GDT的长度），高32位为GDT的基地址，低16位为界限。还记得保护模式中的段寄存器也是16位的吗，它们和gdtr中的界限是对应的啊。</p>
+<img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%804.jpg" class="" title="title gdtr寄存器">
+
+<h2 id="描述符"><a href="#描述符" class="headerlink" title="描述符"></a>描述符</h2><p>GDT中的每个描述符占8个字节，其结构如下</p>
+<img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%802.jpg" class="">
+
+<p>我们可以不用管其中的属性，仅看段基址和段界限。是不是和上面的寻址联系上了呢。</p>
+<p>你可能会问，问什么段基址和段界限都被分开了，却不放在一起？这主要还是历史遗留问题，我们就不在探讨了。</p>
+<h2 id="代码"><a href="#代码" class="headerlink" title="代码"></a>代码</h2><p>光看理论终究还是水中月，我们看一段简单的代码实际体会一下。</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">[SECTION .gdt]</span><br><span class="line">; GDT</span><br><span class="line">;                              段基址,       段界限     , 属性</span><br><span class="line">LABEL_GDT:	   Descriptor       0,                0, 0           ; 空描述符</span><br><span class="line">LABEL_DESC_CODE32: Descriptor       0, SegCode32Len - 1, DA_C + DA_32; 非一致代码段</span><br><span class="line">LABEL_DESC_VIDEO:  Descriptor 0B8000h,           0ffffh, DA_DRW	     ; 显存首地址</span><br><span class="line">; GDT 结束</span><br><span class="line"></span><br><span class="line">GdtLen		equ	$ - LABEL_GDT	; GDT长度</span><br><span class="line">GdtPtr		dw	GdtLen - 1	; GDT界限</span><br><span class="line">		dd	0		; GDT基地址</span><br><span class="line"></span><br><span class="line">; GDT 选择子</span><br><span class="line">SelectorCode32		equ	LABEL_DESC_CODE32	- LABEL_GDT</span><br><span class="line">SelectorVideo		equ	LABEL_DESC_VIDEO	- LABEL_GDT</span><br></pre></td></tr></table></figure>
+
+<p>上面的代码中，我们定义了一个角.gdt的段，其中前三个LABLE_xxx后是我们用一个叫Descriptor宏定义了三个选择子，其中的数值并不一定正确，因为我们只是定义了，还<strong>并没有初始化</strong>。 Descriptor的作用是将段基址、段界限和属性放在一个选择子中相应的位置，其定义在文章末尾，感兴趣的话可以看下。</p>
+<p><code>GdtPtr</code>是不是和gdtr中所放的内容一样呢？没错，当我们在实模式进入保护模式之前，我们需要将GdtPtr的值加载到gdtr寄存器：使用指令<code>lgdt [GdtPtr]</code></p>
+<p>那最后两个GDT选择子又是什么呢？好像是描述符相对于GDT基地址的偏移，其实并不全对，它稍稍复杂一些，如下图所示。</p>
+<img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%803.jpg" class="">
+
+<p>其中TI和RPL是选择子的一些属性，剩下的高13位表示的是描述符在描述符表的位置，即GDT中<strong>第几个</strong>描述符</p>
+<p>最后，我们看一下如何使用上面的东西吧</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br></pre></td><td class="code"><pre><span class="line">[SECTION .s32]; 32 位代码段. </span><br><span class="line">[BITS	32]</span><br><span class="line"></span><br><span class="line">LABEL_SEG_CODE32:</span><br><span class="line">	mov	ax, SelectorVideo</span><br><span class="line">	mov	gs, ax			; 视频段选择子(目的)</span><br><span class="line"></span><br><span class="line">	mov	edi, (80 * 11 + 79) * 2	; 屏幕第 11 行, 第 79 列。</span><br><span class="line">	mov	ah, 0Ch			; 0000: 黑底    1100: 红字</span><br><span class="line">	mov	al, &#39;P&#39;</span><br><span class="line">	mov	[gs:edi], ax</span><br><span class="line"></span><br><span class="line">	; 到此停止</span><br><span class="line">	jmp	$</span><br><span class="line"></span><br><span class="line">SegCode32Len	equ	$ - LABEL_SEG_CODE32</span><br></pre></td></tr></table></figure>
+
+<p>上述代码将一个字母P显示在屏幕上。gs中保存的是显存的选择子，edi为偏移地址，然后使用<code>mov    [gs:edi], ax</code>将ax的内容写入到地址为<strong>gs所指的描述符中的段基址+edi</strong>的内存处，由于这里写入的是显存，所以将会将一个字母P显示在屏幕上。</p>
+<p>Descriptor宏的定义如下</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line">; usage: Descriptor Base, Limit, Attr</span><br><span class="line">;        Base:  dd</span><br><span class="line">;        Limit: dd (low 20 bits available)</span><br><span class="line">;        Attr:  dw (lower 4 bits of higher byte are always 0)</span><br><span class="line">%macro Descriptor 3</span><br><span class="line">	dw	%2 &amp; 0FFFFh				; 段界限1</span><br><span class="line">	dw	%1 &amp; 0FFFFh				; 段基址1</span><br><span class="line">	db	(%1 &gt;&gt; 16) &amp; 0FFh			; 段基址2</span><br><span class="line">	dw	((%2 &gt;&gt; 8) &amp; 0F00h) | (%3 &amp; 0F0FFh)	; 属性1 + 段界限2 + 属性2</span><br><span class="line">	db	(%1 &gt;&gt; 24) &amp; 0FFh			; 段基址3</span><br><span class="line">%endmacro ; 共 8 字节</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>完</p>
+<p>参考：</p>
+<ul>
+<li>《汇编语言》 王爽</li>
+<li>《一个操作系统的实现》 于渊</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%B1%87%E7%BC%96/" rel="tag"># 汇编</a>
+              <a href="/tags/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F/" rel="tag"># 保护模式</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/04/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/" rel="prev" title="永恒之蓝漏洞复现">
+      <i class="fa fa-chevron-left"></i> 永恒之蓝漏洞复现
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/10/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B0/" rel="next" title="保护模式特权级概述">
+      保护模式特权级概述 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#GDT%E5%92%8C%E6%8F%8F%E8%BF%B0%E7%AC%A6"><span class="nav-number">1.</span> <span class="nav-text">GDT和描述符</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%AF%BB%E5%9D%80%E8%BF%87%E7%A8%8B"><span class="nav-number">2.</span> <span class="nav-text">寻址过程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#gdtr%E5%AF%84%E5%AD%98%E5%99%A8"><span class="nav-number">3.</span> <span class="nav-text">gdtr寄存器</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%8F%8F%E8%BF%B0%E7%AC%A6"><span class="nav-number">4.</span> <span class="nav-text">描述符</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%BB%A3%E7%A0%81"><span class="nav-number">5.</span> <span class="nav-text">代码</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

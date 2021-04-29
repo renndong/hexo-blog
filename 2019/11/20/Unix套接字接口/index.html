@@ -1,0 +1,658 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="简介套接字是操作系统中用于网络通信的重要结构，它是建立在网络体系结构的传输层，用于主机之间数据的发送和接收，像web中使用的http协议便是建立在socket之上的。这一节主要讨论网络套接字。 套接字接口时一组函数，它们和Unix I&#x2F;O结合起来，用于创建网络应用。许多操作系统都实现了自己的套接字接口。在Unix中，可以将套接字视为一个文件，使用文件I&#x2F;O函数对套接字进行操作，这也贯彻了Unix中">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Unix套接字接口">
+<meta property="og:url" content="https://mingliangliu.com/2019/11/20/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="简介套接字是操作系统中用于网络通信的重要结构，它是建立在网络体系结构的传输层，用于主机之间数据的发送和接收，像web中使用的http协议便是建立在socket之上的。这一节主要讨论网络套接字。 套接字接口时一组函数，它们和Unix I&#x2F;O结合起来，用于创建网络应用。许多操作系统都实现了自己的套接字接口。在Unix中，可以将套接字视为一个文件，使用文件I&#x2F;O函数对套接字进行操作，这也贯彻了Unix中">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mingliangliu.com/images/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3.png">
+<meta property="article:published_time" content="2019-11-20T09:40:22.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.402Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mingliangliu.com/images/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3.png">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/11/20/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Unix套接字接口 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/11/20/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Unix套接字接口
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-11-20 17:40:22" itemprop="dateCreated datePublished" datetime="2019-11-20T17:40:22+08:00">2019-11-20</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="简介"><a href="#简介" class="headerlink" title="简介"></a>简介</h2><p>套接字是操作系统中用于网络通信的重要结构，它是建立在网络体系结构的传输层，用于主机之间数据的发送和接收，像web中使用的http协议便是建立在socket之上的。这一节主要讨论网络套接字。</p>
+<p>套接字接口时一组函数，它们和Unix I/O结合起来，用于创建网络应用。许多操作系统都实现了自己的套接字接口。在Unix中，可以将套接字视为一个文件，使用文件I/O函数对套接字进行操作，这也贯彻了Unix中一切皆文件的思想。</p>
+<p>既然是网络通信，那么就需要服务端和客户端，一个基本的客户端和服务端的通信模型如下，其中方框里为使用的函数接口：</p>
+<img src="/images/Unix%E5%A5%97%E6%8E%A5%E5%AD%97%E6%8E%A5%E5%8F%A3.png" class="">
+
+<p>由于套接字本质上也是一个文件，所以上图中的<code>recv</code>和<code>send</code>也可以使用文件I/O函数<code>read</code>和<code>write</code>替代。</p>
+<h2 id="套接字地址结构"><a href="#套接字地址结构" class="headerlink" title="套接字地址结构"></a>套接字地址结构</h2><p>既然要进行网络通信，那么就要有基本的网络的地址。因特网的套接字地址存放在一个叫<code>sockaddr_in</code>的16字节的结构体中，其中的IP地址和端口号都是以网络字节序（大端序）存放的：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr_in</span> &#123;</span></span><br><span class="line">    <span class="keyword">uint16_t</span>        sin_family;     <span class="comment">/* 协议类型，总是AF_INET */</span></span><br><span class="line">    <span class="keyword">uint16_t</span>        sin_port;       <span class="comment">/* 端口号 */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">in_addr</span>  <span class="title">sin_addr</span>;</span>       <span class="comment">/* IP地址 */</span></span><br><span class="line">    <span class="keyword">unsigned</span> <span class="keyword">char</span>   sin_zero[<span class="number">8</span>];    <span class="comment">/* sizeof(struct in_addr) */</span></span><br><span class="line">&#125;;</span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">sockaddr</span> &#123;</span></span><br><span class="line">    <span class="keyword">uint16_t</span>    sin_family;         <span class="comment">/* 协议类型 */</span></span><br><span class="line">    <span class="keyword">char</span>        sa_data[<span class="number">14</span>];        <span class="comment">/* 地址信息 */</span></span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>注意到，上面还有一个<code>sockaddr</code>结构体类型。由于<code>connect</code>、<code>bind</code>和<code>accept</code>都需要接受一个指向与协议相关的套接字地址结构指针。但是在设计这些接口时，如何定义这些接口，使之能够接受各种类型的套接字地址。为了解决这个问题，设计了<code>sockaddr</code>这种通用的结构体，在使用这些接口时，都需要将与协议相关的结构体转化为这个通用的结构体。</p>
+<h2 id="创建和关闭套接字"><a href="#创建和关闭套接字" class="headerlink" title="创建和关闭套接字"></a>创建和关闭套接字</h2><p>使用<code>socket</code>函数创建一个套接字，函数原型如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功则为非负描述符，失败返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">socket</span><span class="params">(<span class="keyword">int</span> domain, <span class="keyword">int</span> type, <span class="keyword">int</span> protocol)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>参数<code>domain</code>（域）用于确定通讯的特性，具体如下：</p>
+<table>
+<thead>
+<tr>
+<th>域</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AF_INET</td>
+<td>IPv4因特网域</td>
+</tr>
+<tr>
+<td>AF_INET6</td>
+<td>IPv6因特网域</td>
+</tr>
+<tr>
+<td>AF_UNIX</td>
+<td>UNIX域</td>
+</tr>
+<tr>
+<td>AF_UPSPEC</td>
+<td>未指定</td>
+</tr>
+</tbody></table>
+<p>参数<code>type</code>确定套接字的类型，进一步确定通讯特性：</p>
+<table>
+<thead>
+<tr>
+<th>类型</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SOCK_DGRAM</td>
+<td>固定长度的，无连接的，不可靠的报文传递</td>
+</tr>
+<tr>
+<td>SOCK_RAW</td>
+<td>IP协议的数据报接口</td>
+</tr>
+<tr>
+<td>SOCK_SEQPACKET</td>
+<td>固定长度的，有序的，可靠的，面向连接的报文协议</td>
+</tr>
+<tr>
+<td>SOCK_STREAM</td>
+<td>有序的，可靠的，双向的，面向连接的字节流（TCP）</td>
+</tr>
+</tbody></table>
+<p>参数<code>protocol</code>通常是0，表示使用默认协议，其他选项这里不再赘述。</p>
+<p>例如可以像下面这样创建一个套接字：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fd = socket(AF_INET, SOCK_STREAM, <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+
+<p>其中，<code>AF_INET</code>表示我们使用32位IPv4地址，<code>SOCK_STREAM</code>表示我们使用TCP协议。但是最好的方法使用<code>getaddrinfo</code>函数来自动生成这些函数，这样我们的代码就与具体的协议无关了。我们会在下方进行讲述。</p>
+<p><code>socket</code>函数返回的描述符只是部分打开的，还不能直接使用，取决于是作为客户端还是服务端，需要一些初始化工作。</p>
+<p><code>shutdown</code>可以用来禁止一个套接字的I/O：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功返回1，若出错返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">shutdown</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">int</span> how)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p>参数<code>how</code>指明了关闭套接字的方式：</p>
+<table>
+<thead>
+<tr>
+<th>标志</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>SHUT_RD</td>
+<td>关闭读端</td>
+</tr>
+<tr>
+<td>SHUT_WR</td>
+<td>关闭写端</td>
+</tr>
+<tr>
+<td>SHUT_RDWR</td>
+<td>关闭读写</td>
+</tr>
+</tbody></table>
+<p>尽管使用<code>close</code>函数也够关闭套接字，但是和<code>shutdown</code>函数却有两点不同：当对一个套接字描述符调用<code>close</code>，该套接字的引用计数会减一，只有当引用计数为0时才会真正关闭套接字，而<code>shutdown</code>不管引用计数是否为0，都会关闭套接字。另外，<code>shutdown</code>可以只关闭套接字读写两个方向中的一个方向，保留另一个方向继续工作。</p>
+<h2 id="绑定地址"><a href="#绑定地址" class="headerlink" title="绑定地址"></a>绑定地址</h2><p>作为服务器，需要给套接字关联一个众所周知的地址，这样别人才能使用这个地址来对服务器进行访问。</p>
+<p>使用<code>bind</code>函数来关联地址和套接字：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功，返回0，出错，返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">bind</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">const</span> struct sockaddr *addr, <span class="keyword">socklen_t</span> len)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>bind</code>函数将告诉内核将<code>addr</code>中的服务器套接字地址和套接字<code>sockfd</code>关联起来。其中<code>len</code>为<code>sizeof(sockaddr_in)</code>。</p>
+<p>对于使用的服务器地址有如下限制：</p>
+<ul>
+<li>指定的地址必须有效，不能是其他机器的地址</li>
+<li>地址必须和创建套接字时的地址族所支持的格式相匹配</li>
+<li>地址中的端口号必须不小于1024，除非该进程有相应特权</li>
+<li>一般只能将一个套接字端点绑定到一个地址。</li>
+</ul>
+<h2 id="建立监听"><a href="#建立监听" class="headerlink" title="建立监听"></a>建立监听</h2><p>作为服务器，为了接受用户的连接，需要监听某个特定的端口。当客户请求连接这个端口时，便创建一个连接。</p>
+<p>默认情况下，内核会认为<code>socket</code>函数创建的套接字为<strong>主动套接字</strong>，它存在于用于连接的客户端。调用<code>listen</code>函数来告诉内核描述符是被服务器所使用的，而不是客户端。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：成功返回0，失败返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">listen</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">int</span> backlog)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>listen</code>函数将一个主动套接字转化为一个<strong>监听套接字</strong>，该套接字可以接受来自客户端的连接请求。<code>backlog</code>参数指明请求队列中未完成连接的数量。当队列已满，进程将拒绝后续的连接请求。</p>
+<h2 id="等待连接"><a href="#等待连接" class="headerlink" title="等待连接"></a>等待连接</h2><p>一但服务器调用了<code>listen</code>，所用的套接字就可以用来接受连接请求，使用<code>accept</code>函数来接受客户端的连接请求。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功，返回非负连接描述符，失败返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">accept</span><span class="params">(<span class="keyword">int</span> sockfd, struct sockaddr *<span class="keyword">restrict</span> addr, <span class="keyword">socklen_t</span> *<span class="keyword">restrict</span> len)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>accept</code>返回的描述符是一个新的<strong>已连接的描述符</strong>，这个套接字描述符用来和客户端进行通信。这个新的套接字和原始套接字（<code>sockfd</code>）具有相同的套接字类型和地址族，传送给<code>accept</code>的原始套接字并没有关联到这个连接，继续可用并接受其他连接。</p>
+<p><code>accept</code>函数会将客户端的地址信息填充到参数<code>addr</code>指向的缓冲区，参数<code>len</code>为缓冲区的大小。如果不需要这些信息。可以将<code>addr</code>和<code>len</code>设为NULL。</p>
+<p>如果没有连接请求，<code>accept</code>会阻塞到一个连接请求的到来。如果<code>sockfd</code>处于非阻塞模式，则返回-1，并将<code>errno</code>设置为<code>EAGAIN</code>或<code>EWOULDBLOCK</code>。</p>
+<h2 id="建立连接"><a href="#建立连接" class="headerlink" title="建立连接"></a>建立连接</h2><p>对于客户端来说，如果要处理一个面向连接的网络服务（<code>SOCK_STREAM</code>或<code>SOCK_SEQPACKET</code>）。在交换数据之前，首先要在客户端和服务端之间建立一个连接。</p>
+<p>使用<code>connect</code>函数来建立一个连接：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：成功返回0，出错误返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">connect</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">const</span> struct sockaddr *addr, <span class="keyword">socklen_t</span> len)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>connect</code>函数会试图与套接字地址为<code>addr</code>的服务器建立一个连接，其中<code>len</code>为<code>sizeof(sockaddr_in)</code>。<code>connect</code>函数会阻塞，直到完成连接的建立或出错。随后，描述符<code>sockfd</code>便可进行读写了。</p>
+<h2 id="发送和接收"><a href="#发送和接收" class="headerlink" title="发送和接收"></a>发送和接收</h2><p>可以使用<code>send</code>函数来发送数据：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功，返回发送的字节数，若出错，返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">ssize_t</span> <span class="title">send</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">const</span> <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> nbytes, <span class="keyword">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>send</code>函数与用于文件读写的<code>write</code>函数基本一致，只是多了第四个参数<code>flags</code>，一般置为0。</p>
+<p>使用<code>recv</code>来接收数据:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：返回数据的字节长度，若无可用数据或对方已经按序结束，返回0，若出错返回-1 */</span></span><br><span class="line"><span class="function"><span class="keyword">ssize_t</span> <span class="title">recv</span><span class="params">(<span class="keyword">int</span> sockfd, <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> nbytes, <span class="keyword">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>recv</code>函数与<code>read</code>函数基本一致，只是多了第四个参数<code>flags</code>，来管理如何接收数据，一般置为0。</p>
+<h2 id="主机和服务的转换"><a href="#主机和服务的转换" class="headerlink" title="主机和服务的转换"></a>主机和服务的转换</h2><p>在前面对套接字的创建中，我们采用手动指明协议的方式，但是这样编写并不恰当。Linux提供了一些函数用于主机名和服务名与地址之间的相互映射，使用这些函数可以使我们的程序独立于任何特定版本的IP协议。下面看一下这些函数。</p>
+<p><code>getaddrinfo</code>函数用于将主机名，主机地址，服务名和端口号的字符串表示转化为套接字地址结构。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netdb.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功返回0，若出错返回非零错误码 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">getaddrinfo</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *<span class="keyword">restrict</span> host,</span></span></span><br><span class="line"><span class="function"><span class="params">                <span class="keyword">const</span> <span class="keyword">char</span> *<span class="keyword">restrict</span> service,</span></span></span><br><span class="line"><span class="function"><span class="params">                <span class="keyword">const</span> struct addrinfo *<span class="keyword">restrict</span> hint,</span></span></span><br><span class="line"><span class="function"><span class="params">                strcut addrinfo **<span class="keyword">restrict</span> res)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：无 */</span></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">freeaddrinfo</span><span class="params">(struct addrinfo *ai)</span></span>;</span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：错误消息字符串 */</span></span><br><span class="line"><span class="function"><span class="keyword">const</span> <span class="keyword">char</span> *<span class="title">gai_strerror</span><span class="params">(<span class="keyword">int</span> errcode)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>host</code>参数指定主机地址，可以是域名或者点分十进制的IP地址。<code>service</code>参数可以是服务名也可以是十进制的端口号。主机名和服务名可以两者都提供，也可以只提供一个，但另一个必须是一个空指针。</p>
+<p><code>getaddrinfo</code>函数返回一个链表结构<code>addrinfo</code>，<code>res</code>指向该结构的第一个节点。使用<code>freeaddrinfo</code>函数可以释放该结构。<code>addrinfo</code>结构的定义至少包含以下成员：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">addrinfo</span> &#123;</span></span><br><span class="line">    <span class="keyword">int</span>             ai_flags;       <span class="comment">/* customize behavior */</span></span><br><span class="line">    <span class="keyword">int</span>             ai_family;      <span class="comment">/* address family，first arg to socket function */</span></span><br><span class="line">    <span class="keyword">int</span>             ai_socktype;    <span class="comment">/* socket type，second arg to socket function */</span></span><br><span class="line">    <span class="keyword">int</span>             ai_protocol;    <span class="comment">/* protocol，third arg to socket function */</span></span><br><span class="line">    <span class="keyword">char</span>            *ai_canonname;  <span class="comment">/* canonical name for hostname */</span></span><br><span class="line">    <span class="keyword">socklen_t</span>       ai_addrlen;     <span class="comment">/* length in byte of address */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">sockaddr</span> *<span class="title">ai_addr</span>;</span>       <span class="comment">/* address */</span></span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">addrinfo</span> *<span class="title">ai_next</span>;</span>       <span class="comment">/* next in list */</span></span><br><span class="line">    ...</span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p><code>getaddrinfo</code>可以指定一个可选的<code>hint</code>来过滤符合条件的地址，包括<code>ai_family</code>、<code>ai_flags</code>、<code>ai_protocol</code>、<code>ai_socktype</code>字段。剩余的字段必须置为0或空指针。</p>
+<p>下表总结了<code>ai_flags</code>字段的标志，这些标志可以通过or运算指定多个：</p>
+<table>
+<thead>
+<tr>
+<th>标志</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>AI_ADDRCONFIG</td>
+<td>查询配置的地址类型（IPv4或IPv6）。使用连接时推荐。只有当本地主机被配置为IPv4时，<code>getaddrinfo</code>返回IPv4地址。对IPv6同样</td>
+</tr>
+<tr>
+<td>AI_ALL</td>
+<td>查找IPv4和IPv6地址（仅用于AI_V4MAPPED）</td>
+</tr>
+<tr>
+<td>AI_CANONNAME</td>
+<td>需要一个规范的名字（与别名相对）</td>
+</tr>
+<tr>
+<td>AI_NUMERICHOST</td>
+<td>以数字格式指定主机地址</td>
+</tr>
+<tr>
+<td>AI_NUMERICSERV</td>
+<td>将服务指定为数字端口号</td>
+</tr>
+<tr>
+<td>AI_PASSIVE</td>
+<td>套接字地址用于监听绑定</td>
+</tr>
+<tr>
+<td>AI_V4MAPPED</td>
+<td>如果没有找到IPv6地址，返回映射到IPv6格式的IPv4地址</td>
+</tr>
+</tbody></table>
+<p>如果<code>getaddrinfo</code>出错，可以将返回的错误码传入<code>gai_strerror</code>函数获取具体的错误信息。</p>
+<p>接下来的<code>getnameinfo</code>函数与<code>getaddrinfo</code>函数功能相反，用于将一个地址转化为一个主机名和一个服务名：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netdb.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="comment">/* 返回：若成功返回0，出错返回非0值 */</span></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">getnameinfo</span><span class="params">(<span class="keyword">const</span> struct sockaddr *<span class="keyword">restrict</span> addr, <span class="keyword">socklen_t</span> alen,</span></span></span><br><span class="line"><span class="function"><span class="params">                <span class="keyword">char</span> *<span class="keyword">restrict</span> host, <span class="keyword">socklen_t</span> hostlen,</span></span></span><br><span class="line"><span class="function"><span class="params">                <span class="keyword">char</span> *<span class="keyword">restrict</span> service, <span class="keyword">socklen_t</span> servlen,</span></span></span><br><span class="line"><span class="function"><span class="params">                <span class="keyword">int</span> flags)</span></span>;</span><br></pre></td></tr></table></figure>
+
+<p><code>getnameinfo</code>将字节长度为<code>alen</code>的套接字地址<code>addr</code>翻译成一个主机名和一个服务名，如果<code>host</code>非空，则指向一个字节长度为<code>hostlen</code>的缓冲区用于存放主机名。同样的，如果<code>service</code>非空，则指向一个长度为<code>servlen</code>的缓冲区来存放服务名。<code>flags</code>参数指定了函数工作的方式，如下：</p>
+<table>
+<thead>
+<tr>
+<th>标志</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>NI_DGRAM</td>
+<td>服务基于数据报而非基于流</td>
+</tr>
+<tr>
+<td>NI_NAMEREQD</td>
+<td>如果找不到主机名，将其作为一个错误对待</td>
+</tr>
+<tr>
+<td>NI_NOFQDN</td>
+<td>对于本地主机，仅返回全限定域名的节点名部分</td>
+</tr>
+<tr>
+<td>NI_NUMERICHOST</td>
+<td>函数默认返回host中的域名，该标志指定返回主机的数字形式，而非主机名</td>
+</tr>
+<tr>
+<td>NI_NUMERICSCOPE</td>
+<td>对于IPv6，返回范围ID的数字形式，而非名字</td>
+</tr>
+<tr>
+<td>NI_NUMERICSERV</td>
+<td>函数默认检查/etc/services，如果可能会返回服务名而不是端口号。该标志指定跳过检查，返回服务地址的数字形式（端口号），而非名字</td>
+</tr>
+</tbody></table>
+<p>下面一个来自书中的例子展示域名到它IP地址的映射：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">/* main.c */</span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/socket.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;netdb.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;string.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="meta">#<span class="meta-keyword">define</span> MAXLEN 8192</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span> </span>&#123;</span><br><span class="line">    <span class="class"><span class="keyword">struct</span> <span class="title">addrinfo</span> *<span class="title">p</span>, *<span class="title">listp</span>, <span class="title">hints</span>;</span></span><br><span class="line">    <span class="keyword">char</span> buf[MAXLEN], buf1[MAXLEN];</span><br><span class="line">    <span class="keyword">int</span> rc, flags;</span><br><span class="line"></span><br><span class="line">    <span class="keyword">if</span>(argc != <span class="number">2</span>) &#123;</span><br><span class="line">        <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">&quot;argv error\n&quot;</span>);</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">-1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    <span class="built_in">memset</span>(&amp;hints, <span class="number">0</span>, <span class="keyword">sizeof</span>(struct addrinfo));</span><br><span class="line">    hints.ai_family = AF_INET;</span><br><span class="line">    hints.ai_socktype = SOCK_STREAM;</span><br><span class="line">    <span class="keyword">if</span>((rc = getaddrinfo(argv[<span class="number">1</span>], <span class="literal">NULL</span>, &amp;hints, &amp;listp)) != <span class="number">0</span>) &#123;</span><br><span class="line">        <span class="built_in">fprintf</span>(<span class="built_in">stderr</span>, <span class="string">&quot;getaddrinfo error: %s\n&quot;</span>, gai_strerror(rc));</span><br><span class="line">        <span class="built_in">exit</span>(<span class="number">-1</span>);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    flags = NI_NUMERICHOST;</span><br><span class="line">    <span class="keyword">for</span>(p = listp; p; p = p-&gt;ai_next) &#123;</span><br><span class="line">        getnameinfo(p-&gt;ai_addr, p-&gt;ai_addrlen, buf, MAXLEN, buf1, MAXLEN, flags);</span><br><span class="line">        <span class="built_in">printf</span>(<span class="string">&quot;%s %s\n&quot;</span>, buf, buf1);</span><br><span class="line">    &#125;</span><br><span class="line"></span><br><span class="line">    freeaddrinfo(listp);</span><br><span class="line">    <span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">$ gcc main.c -o main</span><br><span class="line">$ ./main baidu.com</span><br><span class="line"><span class="number">39.156</span><span class="number">.69</span><span class="number">.79</span> <span class="number">0</span></span><br><span class="line"><span class="number">220.181</span><span class="number">.38</span><span class="number">.148</span> <span class="number">0</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>unix提供了一组函数用于创建套接字并完成数据传输：</p>
+<ul>
+<li>使用<code>getaddrinfo</code>函数和<code>socket</code>函数来创建套接字，可以使程序更具有通用性。</li>
+<li>服务端使用<code>bind</code>给套接字绑定地址，使用<code>listen</code>指定套接字用于监听，并使用<code>accept</code>接受连接</li>
+<li>客户端使用<code>connect</code>来连接到服务器</li>
+<li>客户端和服务端都可以使用<code>send</code>和<code>recv</code>来传递数据</li>
+<li>使用<code>close</code>或<code>shutdown</code>函数来关闭套接字</li>
+</ul>
+<hr>
+<p>总结自《深入理解计算机系统》《Unix环境高级编程》</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/19/%E5%81%A5%E5%A3%AE%E7%9A%84I-O-RIO/" rel="prev" title="健壮的I/O(RIO)">
+      <i class="fa fa-chevron-left"></i> 健壮的I/O(RIO)
+    </a></div>
+      <div class="post-nav-item"></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AE%80%E4%BB%8B"><span class="nav-number">1.</span> <span class="nav-text">简介</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%A5%97%E6%8E%A5%E5%AD%97%E5%9C%B0%E5%9D%80%E7%BB%93%E6%9E%84"><span class="nav-number">2.</span> <span class="nav-text">套接字地址结构</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%88%9B%E5%BB%BA%E5%92%8C%E5%85%B3%E9%97%AD%E5%A5%97%E6%8E%A5%E5%AD%97"><span class="nav-number">3.</span> <span class="nav-text">创建和关闭套接字</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%BB%91%E5%AE%9A%E5%9C%B0%E5%9D%80"><span class="nav-number">4.</span> <span class="nav-text">绑定地址</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BB%BA%E7%AB%8B%E7%9B%91%E5%90%AC"><span class="nav-number">5.</span> <span class="nav-text">建立监听</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E7%AD%89%E5%BE%85%E8%BF%9E%E6%8E%A5"><span class="nav-number">6.</span> <span class="nav-text">等待连接</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BB%BA%E7%AB%8B%E8%BF%9E%E6%8E%A5"><span class="nav-number">7.</span> <span class="nav-text">建立连接</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%91%E9%80%81%E5%92%8C%E6%8E%A5%E6%94%B6"><span class="nav-number">8.</span> <span class="nav-text">发送和接收</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%BB%E6%9C%BA%E5%92%8C%E6%9C%8D%E5%8A%A1%E7%9A%84%E8%BD%AC%E6%8D%A2"><span class="nav-number">9.</span> <span class="nav-text">主机和服务的转换</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">10.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

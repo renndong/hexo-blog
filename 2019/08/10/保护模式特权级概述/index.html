@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在IA32的操作系统中，段被分为了4个特权级，分别为0-3级，有时候我们也叫做ring0-ring3，其中，数值越小特权级越高。如下图所示：  图中，核心代码和数据所在的段的特权级都比较高，一般在ring0，而用户程序所在的段的特权级较低，一般在ring3。当低特权级的任务试图在未被允许的情况下访问高特权级的段时，将会产生常规保护错误。 而处理器是如何区分所在段的特权级，进而对其进行保护的呢？这就">
+<meta property="og:type" content="article">
+<meta property="og:title" content="保护模式特权级概述">
+<meta property="og:url" content="https://mingliangliu.com/2019/08/10/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B0/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="在IA32的操作系统中，段被分为了4个特权级，分别为0-3级，有时候我们也叫做ring0-ring3，其中，数值越小特权级越高。如下图所示：  图中，核心代码和数据所在的段的特权级都比较高，一般在ring0，而用户程序所在的段的特权级较低，一般在ring3。当低特权级的任务试图在未被允许的情况下访问高特权级的段时，将会产生常规保护错误。 而处理器是如何区分所在段的特权级，进而对其进行保护的呢？这就">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B01.jpg">
+<meta property="og:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B02.jpg">
+<meta property="article:published_time" content="2019-08-10T07:04:53.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.405Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="汇编">
+<meta property="article:tag" content="保护模式">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mingliangliu.com/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B01.jpg">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/08/10/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>保护模式特权级概述 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/08/10/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          保护模式特权级概述
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-10 15:04:53" itemprop="dateCreated datePublished" datetime="2019-08-10T15:04:53+08:00">2019-08-10</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%B1%87%E7%BC%96/" itemprop="url" rel="index"><span itemprop="name">汇编</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在IA32的操作系统中，段被分为了4个特权级，分别为0-3级，有时候我们也叫做ring0-ring3，其中，数值越小特权级越高。如下图所示：</p>
+<p><img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B01.jpg"></p>
+<p>图中，核心代码和数据所在的段的特权级都比较高，一般在ring0，而用户程序所在的段的特权级较低，一般在ring3。当低特权级的任务试图在未被允许的情况下访问高特权级的段时，将会产生常规保护错误。</p>
+<p>而处理器是如何区分所在段的特权级，进而对其进行保护的呢？这就不得不提到CPL、DPL和RPL三者了。但是在开始之前，我们需要先了解一下一致代码段和非一致代码段。</p>
+<h2 id="一致代码段和非一致代码段"><a href="#一致代码段和非一致代码段" class="headerlink" title="一致代码段和非一致代码段"></a>一致代码段和非一致代码段</h2><p>在操作系统中，我们有些高特权级的代码是希望被低特权级的程序所访问的，比如一些库函数，于是我们将这些高特权级代码放在一个叫做一致代码段的段里。而有些高特权级的代码，我们并不想让低特权级的程序所访问，于是我们把他们放在一个叫做非一致代码段的段里。具体来说，当通过call或者jmp指令转移到其它段时（即访问其他段），当转移的目标是一个优先级更高的一致代码段时，我们是可以进行访问的，但是当前的特权级会被延续下去；当转移的目标是一个优先级更高的非一致代码段时，这时的访问会引起常规保护错误（除非使用调用门或任务门）。</p>
+<p>总结来说：</p>
+<ul>
+<li><p>一致代码段：由系统（高特权级）共享给低特权级的程序的代码所在的段，主要有下面两点限制：</p>
+<ol>
+<li>高特权级程序不能访问低特权级的数据</li>
+<li>低特权级的程序可以访问高特权级的代码，但是<strong>特权级不会改变</strong>，还是保持低特权级程序的特权级</li>
+</ol>
+</li>
+<li><p>非一致代码段：为了避免被低特权级程序所访问而保护起来的代码段，主要有一点限制：</p>
+<ol>
+<li>只允许同级之间访问</li>
+</ol>
+</li>
+<li><p>另外，数据段都是非一致的 </p>
+</li>
+</ul>
+<p>所遵循的规则如下图所示：</p>
+<p><img src="/images/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B02.jpg"></p>
+<h2 id="CPL"><a href="#CPL" class="headerlink" title="CPL"></a>CPL</h2><p>CPL全称Current Privilege Level，顾名思义，CPL代表的是当前执行的任务和程序的特权级。它存储在cs和ss的第0位和第1位上。<strong>一般情况下</strong>，CPL等于代码所在段的特权级，当程序转移到不同的代码段时，处理器将改变CPL的值。</p>
+<p>但是当访问一致代码段时，并不会改变CPL，正如一致代码段中所说，一致代码段可以被低特权级的程序所访问，但是并不会改变特权级，所以也就不会改变CPL，这就是与上面加粗的“一般情况”相对的“非一般情况”。</p>
+<h2 id="DPL"><a href="#DPL" class="headerlink" title="DPL"></a>DPL</h2><p>DPL全程为Descriptor Privilege Level，它代表段或者门的特权级。他被存储在段描述符或者门描述符属性中的DPL字段上。</p>
+<p>当当前的代码段试图访问一个段或者门时，DPL将会和CPL以及段或者门选择子的RPL相比较，而对于段或者门类型的不同，比较规则也不同，具体如下：</p>
+<ul>
+<li>数据段：如果访问的是一个数据段，DPL代表访问此段的最低特权级，即只有CPL &lt;= DPL（数值上），才有权限访问。</li>
+<li>非一致代码段（不使用调用门）：DPL代表访问此段的特权级。即只有DPL = RPL，才有权限访问。</li>
+<li>调用门：DPL规定了当前执行的任务和程序可以访问此调用门的最低特权级，即要CPL &lt;= DPL</li>
+<li>一致代码段和非一致代码段（使用调用门访问）：DPL规定了访问此段的最高特权级。即只有CPL &gt;= DPL，才有权限访问。</li>
+<li>TSS：DPL规定了访问此TSS的最低特权级。</li>
+</ul>
+<p>总结一下就是：</p>
+<ul>
+<li>在 数据段、调用门、TSS中，DPL代表最低特权级，访问要求：CPL &lt;= DPL</li>
+<li>在 不使用调用门访问的非一直代码段时，访问要求： CPL = DPL</li>
+<li>在 一致代码段和使用调用门访问的非一致代码段中，DPL 代表最高特权级，访问要求：CPL &gt;= DPL</li>
+</ul>
+<h2 id="RPL"><a href="#RPL" class="headerlink" title="RPL"></a>RPL</h2><p>RPL全称是Requested Privilege Level。RPL保存在段选择子的第0位和第1位上。我们在上文说了当一个段访问另一个段时，CPL与DPL的比较规则，但是仅仅比较CPL和DPL是不够的，处理器还要通过检查RPL来确定能否访问另一个段。</p>
+<p>操作系统往往用RPL来避免低特权级应用程序访问高特权级段内的数据，即便提出访问请求的段有足够的特权级，如果RPL不够也是不行的，当RPL的值比CPL大的时候，RPL将起决定性作用。也就是说，只有当CPL和RPL都小于要访问的数据段的DPL时，才有权限访问该数据段。关于为什么引入RPL的讨论还是比较复杂的，此处不再深入探讨。</p>
+<hr>
+<p>完</p>
+<p>参考：</p>
+<ul>
+<li>《一个操作系统的实现》 于渊</li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%B1%87%E7%BC%96/" rel="tag"># 汇编</a>
+              <a href="/tags/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F/" rel="tag"># 保护模式</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/04/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%80/" rel="prev" title="保护模式下的寻址">
+      <i class="fa fa-chevron-left"></i> 保护模式下的寻址
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/11/x86-64-Linux-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%90/" rel="next" title="x86_64 Linux 运行时栈的字节对齐">
+      x86_64 Linux 运行时栈的字节对齐 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%80%E8%87%B4%E4%BB%A3%E7%A0%81%E6%AE%B5%E5%92%8C%E9%9D%9E%E4%B8%80%E8%87%B4%E4%BB%A3%E7%A0%81%E6%AE%B5"><span class="nav-number">1.</span> <span class="nav-text">一致代码段和非一致代码段</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#CPL"><span class="nav-number">2.</span> <span class="nav-text">CPL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#DPL"><span class="nav-number">3.</span> <span class="nav-text">DPL</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#RPL"><span class="nav-number">4.</span> <span class="nav-text">RPL</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

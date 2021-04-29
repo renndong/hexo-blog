@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在Linux C&#x2F;C++的开发过程中，当源代码文件较少时，我们可以手动使用gcc或g++进行编译链接，但是当源代码文件较多且依赖变得复杂时，我们就需要一种简单好用的工具来帮助我们管理。于是，make应运而生。 make主要用来管理C&#x2F;C++项目，通过Makefile书写的规则来对项目中的源代码文件进行编译，生成可执行的程序。 make流程make执行的主要过程如下：当在shell中使用make命令">
+<meta property="og:type" content="article">
+<meta property="og:title" content="make工具简介">
+<meta property="og:url" content="https://mingliangliu.com/2019/10/14/make%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="在Linux C&#x2F;C++的开发过程中，当源代码文件较少时，我们可以手动使用gcc或g++进行编译链接，但是当源代码文件较多且依赖变得复杂时，我们就需要一种简单好用的工具来帮助我们管理。于是，make应运而生。 make主要用来管理C&#x2F;C++项目，通过Makefile书写的规则来对项目中的源代码文件进行编译，生成可执行的程序。 make流程make执行的主要过程如下：当在shell中使用make命令">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-10-14T13:58:35.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.403Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/10/14/make%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>make工具简介 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/10/14/make%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          make工具简介
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-10-14 21:58:35" itemprop="dateCreated datePublished" datetime="2019-10-14T21:58:35+08:00">2019-10-14</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在Linux C/C++的开发过程中，当源代码文件较少时，我们可以手动使用gcc或g++进行编译链接，但是当源代码文件较多且依赖变得复杂时，我们就需要一种简单好用的工具来帮助我们管理。于是，make应运而生。</p>
+<p>make主要用来管理C/C++项目，通过Makefile书写的规则来对项目中的源代码文件进行编译，生成可执行的程序。</p>
+<h2 id="make流程"><a href="#make流程" class="headerlink" title="make流程"></a>make流程</h2><p>make执行的主要过程如下：当在shell中使用make命令时，make会寻找当前目录下的Makefile文件，根据该文件中的规则来确定依赖关系，如果一个文件所依赖的文件比这个文件要新，或者说修改时间更晚，那么make会根据Makefile中指明的命令来重新编译生成该文件。</p>
+<p>另外，make除了自动寻找定义了编译规则的Makefile文件外，还可以手动指明定义了规则的文件。比如：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">$ make -f rule.txt  # rule.txt中为make规则</span><br></pre></td></tr></table></figure>
+
+<h2 id="Makefile的写法"><a href="#Makefile的写法" class="headerlink" title="Makefile的写法"></a>Makefile的写法</h2><h3 id="规则"><a href="#规则" class="headerlink" title="规则"></a>规则</h3><p>Makefile由一系列的规则构成，一条规则的基本格式如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">目标 : 条件 </span><br><span class="line">[tab]  命令</span><br></pre></td></tr></table></figure>
+
+<p>其中，需要在命令之前加一个Tab制表符，并且条件和命令都是可以省略的，但是只能省略其一，条件省略时一般做一些编译以外的其他工作，当命令省略时其实也可以对目标进行编译生成，这涉及到了Makefile中的隐式规则，这里不过多赘述，我们只讨论显式规则。</p>
+<p>如make流程所述，当条件中的文件比目标要新时，会执行tab后的命令。</p>
+<p>Makefile中有很多规则时，当在shell中执行<code>make</code>命令，默认会将第一条规则的目标作为最终生成的目标。</p>
+<p>比如下面这个Makefile例子：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br></pre></td><td class="code"><pre><span class="line">main: main.o sub.o</span><br><span class="line">	gcc -o main main.o sub.o</span><br><span class="line"></span><br><span class="line">sub.o: sub.c sub.h</span><br><span class="line">	gcc -c -o sub.o sub.c</span><br><span class="line"></span><br><span class="line">main.o: main.c sub.h</span><br><span class="line">	gcc -c -o main.o main.c</span><br><span class="line"></span><br><span class="line">clean:</span><br><span class="line">	rm sub.o main.o</span><br><span class="line"></span><br><span class="line">.PHONY: clean</span><br></pre></td></tr></table></figure>
+
+<p>当我们在shell中执行make时，会最终生成<code>main</code>这个最终目标。</p>
+<p>但是如果我们只想生成某个中间的目标也是可以的，比如只生成<code>sub.o</code>，只需要采用<code>make 最终目标</code>的形式就可以了，即<code>make sub.o</code></p>
+<p>注意到示例中省略了条件的那条规则（目标为clean的那条规则），正规上把它叫做伪目标，用来执行一些其他的任务，如本例中清除编译中生成的.o文件。当然，伪目标下的命令可以是多种多样的，比如将<code>clean</code>下的命令改为<code>ls</code>，当执行<code>make clean</code>时，会列出当前目录下的所有文件。但是有一点需要注意的是，如果我们的目录下已经有了一个叫做clean的文件，当我们执行<code>make clean</code>时，make就分不清这个clean到底是那个了，为了避免这种情况，需要用<code>.PHONY: 伪目标1，伪目标2..</code>的方式来显式的声明伪目标。</p>
+<h3 id="变量"><a href="#变量" class="headerlink" title="变量"></a>变量</h3><p>当我们Makefile中的规则变得非常多时，为了方便，也为了可维护性，我们一般使用变量来代替某些信息。</p>
+<p>Makefile中定义变量的格式如下，并用<code>$(变量名)</code>的形式来使用变量：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">变量名 &lt;赋值符&gt; 变量值</span><br></pre></td></tr></table></figure>
+
+<p>其中赋值符可以是<code>=</code>、<code>:=</code>、<code>?=</code>、<code>+=</code>。它们的区别如下表：</p>
+<table>
+<thead>
+<tr>
+<th>符号</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>=</code></td>
+<td>基本的赋值</td>
+</tr>
+<tr>
+<td><code>:=</code></td>
+<td>使用的是当前的值。例如：<code>y := $(x)</code>这句中<code>y</code>会被赋值到这句话时<code>x</code>的值，而<code>y = $(x)</code>会被赋值为<code>x</code>在当前Makefile中最终的值</td>
+</tr>
+<tr>
+<td><code>?=</code></td>
+<td>如果变量未被赋值，那么便被赋予<code>?=</code>后的值</td>
+</tr>
+<tr>
+<td><code>+=</code></td>
+<td>变量添加<code>+=</code>后面的值</td>
+</tr>
+</tbody></table>
+<p>先前示例中便可精简如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">CC &#x3D; gcc</span><br><span class="line">LD &#x3D; gcc</span><br><span class="line">CFLAGS &#x3D; -c</span><br><span class="line">OBJS &#x3D; main.o \</span><br><span class="line">	sub.o</span><br><span class="line"></span><br><span class="line">main: $(OBJS)</span><br><span class="line">	$(LD) -o  main $(OBJS)</span><br><span class="line"></span><br><span class="line">sub.o: sub.c sub.h</span><br><span class="line">	$(CC) $(CFLAGS) -o sub.o sub.c</span><br><span class="line"></span><br><span class="line">main.o: main.c sub.h</span><br><span class="line">	$(CC) $(CFLAGS) -o main.o main.c</span><br><span class="line"></span><br><span class="line">clean:</span><br><span class="line">	rm $(OBJS)</span><br><span class="line">.PHONY: clean</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>Tip: 有时候我们的规则可能太长，写在一行又不好看，可以使用<code>\</code>来进行换行。</p>
+</blockquote>
+<h3 id="内置变量"><a href="#内置变量" class="headerlink" title="内置变量"></a>内置变量</h3><p>Makefile中还提供了一些内置变量，比如<code>$(CC)</code>代表默认的C编译器，<code>$(CXX)</code>代表默认的C++编译器。更多内置变量请参考<a target="_blank" rel="noopener" href="https://www.gnu.org/software/make/manual/html_node/Implicit-Variables.html">这里</a></p>
+<h3 id="自动变量"><a href="#自动变量" class="headerlink" title="自动变量"></a>自动变量</h3><p>Makefile中还提供了一些特殊的变量，不用定义且会根据所在的规则而改变，减少一些目标文件名和条件文件名的输入。以下是六个常用的自动变量：</p>
+<table>
+<thead>
+<tr>
+<th>变量名</th>
+<th>作用</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>$@</code></td>
+<td>目标的文件名</td>
+</tr>
+<tr>
+<td><code>$&lt;</code></td>
+<td>第一个条件的文件名</td>
+</tr>
+<tr>
+<td><code>$?</code></td>
+<td>时间戳在目标之后的所有条件，并以空格隔开这些条件</td>
+</tr>
+<tr>
+<td><code>$^</code></td>
+<td>所有条件的文件名，并以空格隔开，且排除了重复的条件</td>
+</tr>
+<tr>
+<td><code>$+</code></td>
+<td>与<code>$^</code>类似，只是没有排除重复条件</td>
+</tr>
+<tr>
+<td><code>$*</code></td>
+<td>目标的主文件名，不包含扩展名</td>
+</tr>
+</tbody></table>
+<p>根据以上自动变量，我们可以将上面的示例改成更简便的形式：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br></pre></td><td class="code"><pre><span class="line">CC &#x3D; gcc</span><br><span class="line">LD &#x3D; gcc</span><br><span class="line">CFLAGS &#x3D; -c</span><br><span class="line">OBJS &#x3D; main.o \</span><br><span class="line">	sub.o</span><br><span class="line"></span><br><span class="line">main: $(OBJS)</span><br><span class="line">	$(LD) -o $@ $^</span><br><span class="line"></span><br><span class="line">sub.o: sub.c sub.h</span><br><span class="line">	$(CC) $(CFLAGS) -o $@ $&lt;</span><br><span class="line"></span><br><span class="line">main.o: main.c sub.h</span><br><span class="line">	$(CC) $(CFLAGS) -o $@ $&lt;</span><br><span class="line"></span><br><span class="line">clean:</span><br><span class="line">	rm $(OBJS)</span><br><span class="line">.PHONY: clean</span><br></pre></td></tr></table></figure>
+
+<h2 id="后记"><a href="#后记" class="headerlink" title="后记"></a>后记</h2><p>另外，尽管make工具常常用来管理C/C++项目，但是用来管理其他项目也是可以的，比如汇编项目，Pascal项目，甚至是node.js的项目，make就是一个工具，来帮我们管理一些构建的规则，只要规则写的得当，怎么用就随你了。</p>
+<p>最后，make虽然可以很好来管理项目了，但是还是不够方便。试想一下，当Makefile中的规则越来越多，又臭又长的时候，make就又显得很难用了，这也就是为什么cmake诞生的原因。通过编写Cmakelist，来指导cmake生成各种Makefile文件和project文件，从而减轻管理Makefile的负担。</p>
+<hr>
+<p>参考：</p>
+<ul>
+<li><a target="_blank" rel="noopener" href="https://www.gnu.org/software/make/manual/make.html#Reading">GNU make</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/09/Python%E6%AD%A3%E5%88%99%E8%A1%A8%E8%BE%BE%E5%BC%8F/" rel="prev" title="Python正则表达式">
+      <i class="fa fa-chevron-left"></i> Python正则表达式
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/10/18/Unix%E7%B3%BB%E7%BB%9F%E7%BA%A7I-O/" rel="next" title="Unix系统级I/O">
+      Unix系统级I/O <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#make%E6%B5%81%E7%A8%8B"><span class="nav-number">1.</span> <span class="nav-text">make流程</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Makefile%E7%9A%84%E5%86%99%E6%B3%95"><span class="nav-number">2.</span> <span class="nav-text">Makefile的写法</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%A7%84%E5%88%99"><span class="nav-number">2.1.</span> <span class="nav-text">规则</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8F%98%E9%87%8F"><span class="nav-number">2.2.</span> <span class="nav-text">变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%86%85%E7%BD%AE%E5%8F%98%E9%87%8F"><span class="nav-number">2.3.</span> <span class="nav-text">内置变量</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%87%AA%E5%8A%A8%E5%8F%98%E9%87%8F"><span class="nav-number">2.4.</span> <span class="nav-text">自动变量</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%90%8E%E8%AE%B0"><span class="nav-number">3.</span> <span class="nav-text">后记</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

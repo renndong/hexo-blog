@@ -1,0 +1,598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="在Unix系统中，一且皆为文件。一个Linux文件就是一个字符序列，并且所有的I&#x2F;O设备都被模型化成了文件。而所有的输入输出都被当作对对应文件的读和写。Linux提供了一组简单、低级的接口，使得所有的输入输出都可以用一种简单通用的方式来执行。 Linux文件的分类每一个文件都有一个类型（type）来表示它在系统中的角色，主要有以下几种：  普通文件。普通文件包括文本文件和二进制文件。 目录。目录包">
+<meta property="og:type" content="article">
+<meta property="og:title" content="Unix系统级I&#x2F;O">
+<meta property="og:url" content="https://mingliangliu.com/2019/10/18/Unix%E7%B3%BB%E7%BB%9F%E7%BA%A7I-O/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="在Unix系统中，一且皆为文件。一个Linux文件就是一个字符序列，并且所有的I&#x2F;O设备都被模型化成了文件。而所有的输入输出都被当作对对应文件的读和写。Linux提供了一组简单、低级的接口，使得所有的输入输出都可以用一种简单通用的方式来执行。 Linux文件的分类每一个文件都有一个类型（type）来表示它在系统中的角色，主要有以下几种：  普通文件。普通文件包括文本文件和二进制文件。 目录。目录包">
+<meta property="og:locale" content="zh_CN">
+<meta property="article:published_time" content="2019-10-18T09:22:59.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.403Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="Linux">
+<meta name="twitter:card" content="summary">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/10/18/Unix%E7%B3%BB%E7%BB%9F%E7%BA%A7I-O/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>Unix系统级I/O | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/10/18/Unix%E7%B3%BB%E7%BB%9F%E7%BA%A7I-O/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          Unix系统级I/O
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-10-18 17:22:59" itemprop="dateCreated datePublished" datetime="2019-10-18T17:22:59+08:00">2019-10-18</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/Linux/" itemprop="url" rel="index"><span itemprop="name">Linux</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <p>在Unix系统中，一且皆为文件。一个Linux文件就是一个字符序列，并且所有的I/O设备都被模型化成了文件。而所有的输入输出都被当作对对应文件的读和写。Linux提供了一组简单、低级的接口，使得所有的输入输出都可以用一种简单通用的方式来执行。</p>
+<h2 id="Linux文件的分类"><a href="#Linux文件的分类" class="headerlink" title="Linux文件的分类"></a>Linux文件的分类</h2><p>每一个文件都有一个类型（type）来表示它在系统中的角色，主要有以下几种：</p>
+<ul>
+<li>普通文件。普通文件包括文本文件和二进制文件。</li>
+<li>目录。目录包含一组指向其目录内的连接（link）</li>
+<li>套接字文件。其主要用来和另外的进程进行跨网络通信。</li>
+<li>管道。管道包括匿名管道和命名管道。用来进行进程间的通信。</li>
+<li>符号链接。</li>
+<li>字符和块设备等。</li>
+</ul>
+<h2 id="文件的打开与关闭"><a href="#文件的打开与关闭" class="headerlink" title="文件的打开与关闭"></a>文件的打开与关闭</h2><p>进程通过<code>open</code>函数打开或创建一个新文件：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fcntl.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">open</span><span class="params">(<span class="keyword">char</span> *filename, <span class="keyword">int</span> flags, <span class="keyword">mode_t</span> mode)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回文件的描述符，若出错返回-1 */</span></span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>这里的<code>filename</code>可能有些误解，不单单是指文件名，它还可以是相对或绝对路径名。</p>
+</blockquote>
+<p><code>open</code>函数将<code>filename</code>转换为一个文件描述符，返回的描述符总是在当前进程中<strong>没有打开的最小描述符</strong>。</p>
+<blockquote>
+<p>关于文件描述符是如何分配的呢？在Linux中，每一个进程都会维护一个文件描述符表，这个表实现了一个整数到文件的映射关系。在描述符表中，0-2分别对应stdin、stdout和stderr文件。当在进程中要打开一个文件的时候，文件描述符会从3开始分配，然后是4、5…</p>
+</blockquote>
+<p><code>flags</code>指明了进程如何访问这些文件，具体如下：</p>
+<table>
+<thead>
+<tr>
+<th>掩码</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>O_RDONLY</td>
+<td>只读</td>
+</tr>
+<tr>
+<td>O_WRONLY</td>
+<td>只写</td>
+</tr>
+<tr>
+<td>O_RDWR</td>
+<td>可读可写</td>
+</tr>
+<tr>
+<td>O_CREAT</td>
+<td>如果文件不存在，就创建它的一个截断的空文件</td>
+</tr>
+<tr>
+<td>O_TRUNC</td>
+<td>如果文件已存在，就截断它</td>
+</tr>
+<tr>
+<td>O_APPEND</td>
+<td>在每次读写操作前，设置文件位置到文件的结尾处</td>
+</tr>
+</tbody></table>
+<p>上面这些掩码还可以叠加，例如：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">fd = open(<span class="string">&quot;foo.txt&quot;</span>, O_WRONLY|O_APPEND, <span class="number">0</span>);</span><br></pre></td></tr></table></figure>
+
+<p><code>mode</code>参数指明了如果要创建新文件时，新文件的访问权限位。如果只是普通的读写文件，<code>mode</code>一般为0。具体规则如下：</p>
+<table>
+<thead>
+<tr>
+<th>掩码</th>
+<th>描述</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>S_IRUSR</td>
+<td>使用者（拥有者）能够读这个文件</td>
+</tr>
+<tr>
+<td>S_IWUSR</td>
+<td>使用者（拥有者）能够写这个文件</td>
+</tr>
+<tr>
+<td>S_IXUSR</td>
+<td>使用者（拥有者）能够执行这个文件</td>
+</tr>
+<tr>
+<td>S_IRGRP</td>
+<td>拥有者所在组的成员可以读这个文件</td>
+</tr>
+<tr>
+<td>S_IWGRP</td>
+<td>拥有者所在组的成员可以写这个文件</td>
+</tr>
+<tr>
+<td>S_IXGRP</td>
+<td>拥有者所在组的成员可以执行这个文件</td>
+</tr>
+<tr>
+<td>S_IROTH</td>
+<td>其他人（任何人）可以读这个文件</td>
+</tr>
+<tr>
+<td>S_IWOTH</td>
+<td>其他人（任何人）可以写这个文件</td>
+</tr>
+<tr>
+<td>S_IXOTH</td>
+<td>其他人（任何人）可以执行这个文件</td>
+</tr>
+</tbody></table>
+<p>进程通过<code>close</code>函数来关闭一个已经打开的文件。关闭一个已关闭的描述符会出错。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">close</span><span class="params">(<span class="keyword">int</span> fd)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回0，出错返回-1 */</span></span><br></pre></td></tr></table></figure>
+
+<h2 id="文件的读写"><a href="#文件的读写" class="headerlink" title="文件的读写"></a>文件的读写</h2><p>进程通过<code>read</code>和<code>write</code>函数来对文件进行读写操作:</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">ssize_t</span> <span class="title">read</span><span class="params">(<span class="keyword">int</span> fd, <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> n)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回读的字节数，若EOF则为0，若出错则为-1 */</span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">ssize_t</span> <span class="title">write</span><span class="params">(<span class="keyword">int</span> fd, <span class="keyword">void</span> *buf, <span class="keyword">size_t</span> n)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回写的字节数，若出错则为-1 */</span></span><br></pre></td></tr></table></figure>
+
+<p>例如将从标准输入文件读，写到标准输出文件：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        <span class="keyword">char</span> c;</span><br><span class="line">        <span class="keyword">while</span>(read(STDIN_FILENO, &amp;c, <span class="number">1</span>) != <span class="number">0</span>)</span><br><span class="line">		write(STDOUT_FILENO, &amp;c, <span class="number">1</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<blockquote>
+<p>需要说明一下的是，上面两个函数中，<code>ssize_t</code>的类型为<code>long</code>，而<code>size_t</code>的类型是<code>unsigned long</code></p>
+</blockquote>
+<h2 id="读写文件的元数据"><a href="#读写文件的元数据" class="headerlink" title="读写文件的元数据"></a>读写文件的元数据</h2><p>应用程序可以通过<code>stat</code>和<code>fstat</code>函数读取每个文件的详细信息（也叫做文件的元数据）</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">stat</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *filename, struct stat *buf)</span></span>;</span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">fstat</span><span class="params">(<span class="keyword">int</span> fd, struct stat *buf)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回0，出错返回-1 */</span></span><br></pre></td></tr></table></figure>
+
+<p>上面两个函数都通过填写用来描述文件信息的<code>stat</code>数据结构来获取文件的详细信息。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">stat</span> &#123;</span> </span><br><span class="line">     <span class="keyword">dev_t</span>              st_dev;             <span class="comment">// 文件所在设备ID </span></span><br><span class="line">     <span class="keyword">ino_t</span>              st_ino;             <span class="comment">// inode编号 </span></span><br><span class="line">     <span class="keyword">mode_t</span>             st_mode;            <span class="comment">// 保护模式和文件类型</span></span><br><span class="line">     <span class="keyword">nlink_t</span>            st_nlink;           <span class="comment">// 硬链接个数  </span></span><br><span class="line">     <span class="keyword">uid_t</span>              st_uid;             <span class="comment">// 所有者用户ID  </span></span><br><span class="line">     <span class="keyword">gid_t</span>              st_gid;             <span class="comment">// 所有者组ID  </span></span><br><span class="line">     <span class="keyword">dev_t</span>              st_rdev;            <span class="comment">// 设备ID(如果是特殊文件) </span></span><br><span class="line">     <span class="keyword">off_t</span>              st_size;            <span class="comment">// 总体尺寸，以字节为单位 </span></span><br><span class="line">     <span class="keyword">unsigned</span> <span class="keyword">long</span>      st_blksize;         <span class="comment">// 文件系统 I/O 块大小</span></span><br><span class="line">     <span class="keyword">unsigned</span> <span class="keyword">long</span>      st_blocks;          <span class="comment">// 已分配块个数</span></span><br><span class="line">     <span class="keyword">time_t</span>             st_atime;           <span class="comment">// 上次访问时间 </span></span><br><span class="line">     <span class="keyword">time_t</span>             st_mtime;           <span class="comment">// 上次更新时间 </span></span><br><span class="line">     <span class="keyword">time_t</span>             st_ctime;           <span class="comment">// 上次状态更改时间 </span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>Linux建议我们使用在<code>sys/stat.h</code>中定义的宏谓词来确定<code>st_mode</code>成员的文件类型，例如：</p>
+<ul>
+<li><code>S_ISREG(m)</code>：这是一个普通文件吗？</li>
+<li><code>S_ISDIR(m)</code>：这是一个目录文件吗?</li>
+<li><code>S_ISSOCK(m)</code>：这是一个网络套接字文件吗？</li>
+</ul>
+<p>其他宏谓词就不再赘述。</p>
+<h2 id="读取目录内容"><a href="#读取目录内容" class="headerlink" title="读取目录内容"></a>读取目录内容</h2><p>应用程序可以通过<code>readdir</code>系列函数来读取文件的内容：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;dirent.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function">DIR *<span class="title">opendir</span><span class="params">(<span class="keyword">const</span> <span class="keyword">char</span> *name)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功，返回处理的指针，否则，返回NULL */</span></span><br></pre></td></tr></table></figure>
+
+<p><code>opendir</code>返回指向目录流的指针。流是对条目有序列表的抽象，这里是指目录项的列表。</p>
+<p>可以使用<code>readdir</code>函数来读取目录流中的内容。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;dirent.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function">struct dirent *<span class="title">readdir</span><span class="params">(DIR *dirp)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功，则返回下一个目录项的指针；若没有更多目录或出错，者为NULL */</span></span><br></pre></td></tr></table></figure>
+
+<p>每个目录项都是一个结构，其形式如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">dirent</span> &#123;</span></span><br><span class="line">        <span class="keyword">ino_t</span>  d_ino;           <span class="comment">/* inode */</span></span><br><span class="line">        <span class="keyword">char</span>   d_name[<span class="number">256</span>];     <span class="comment">/* 文件名 */</span></span><br><span class="line">        <span class="comment">/* 虽然在某些Linux系统中还包括其他成员，但上面两个成员对所有Unix系统都是通用的 */</span></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+
+<p>最后，使用<code>closedir</code>来关闭流并释放所有资源：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;dirent.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">closedir</span><span class="params">(DIR *dirp)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功为0，错误为-1 */</span></span><br></pre></td></tr></table></figure>
+
+<p>下面给出一个读取指定目录文件的例子：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;dirent.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">(<span class="keyword">int</span> argc, <span class="keyword">char</span> **argv)</span> </span>&#123;</span><br><span class="line">	DIR *streamp;</span><br><span class="line">	<span class="class"><span class="keyword">struct</span> <span class="title">dirent</span> *<span class="title">dep</span>;</span></span><br><span class="line">	</span><br><span class="line">	streamp = opendir(argv[<span class="number">1</span>]);</span><br><span class="line">	<span class="keyword">while</span>((dep = readdir(streamp)) != <span class="literal">NULL</span>) &#123;</span><br><span class="line">		<span class="built_in">printf</span>(<span class="string">&quot;%s\n&quot;</span>, dep-&gt;d_name);</span><br><span class="line">	&#125;</span><br><span class="line">	closedir(streamp);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="I-O重定向"><a href="#I-O重定向" class="headerlink" title="I/O重定向"></a>I/O重定向</h2><p>这里稍稍提及一下I/O重定向。上文在介绍文件的打开与关闭的时候提到，每一个进程都会维护一个文件描述符表，这个描述符表的表项由进程打开的文件描述符来索引，描述符表项实现了描述符到真实文件的映射关系。但是，如果我们改变这种映射关系，这便是文件重定向。</p>
+<p>文件重定向可以使用<code>dup2</code>函数：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">int</span> <span class="title">dup2</span><span class="params">(<span class="keyword">int</span> oldfd, <span class="keyword">int</span> newfd)</span></span>;</span><br><span class="line"><span class="comment">/* 返回：若成功返回非负的描述符，若出错返回-1 */</span></span><br></pre></td></tr></table></figure>
+
+<p><code>dup2</code>实现了将<code>newfd</code>重定向到<code>oldfd</code>，这其中实际上是使用<code>oldfd</code>的表项去覆盖<code>newfd</code>表项以前的内容，如果<code>newfd</code>已经打开，则先关闭<code>newfd</code>再进行覆盖。并且，如果<code>newfd</code>所指向的文件的引用计数变为0，则会释放相应的资源（包括打开文件表、v-node表中的表项）。例如，可以将标准输出重定向到一个文件：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdio.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/types.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;sys/stat.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;fcntl.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;unistd.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="meta-keyword">include</span> <span class="meta-string">&lt;stdlib.h&gt;</span></span></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">	<span class="keyword">int</span> fd;</span><br><span class="line">	<span class="keyword">char</span> c;</span><br><span class="line"></span><br><span class="line">	fd = open(<span class="string">&quot;foo.txt&quot;</span>, O_WRONLY, <span class="number">0</span>);</span><br><span class="line">	dup2(fd, <span class="number">1</span>);</span><br><span class="line">	<span class="keyword">while</span>(<span class="built_in">scanf</span>(<span class="string">&quot;%c&quot;</span>, &amp;c) != <span class="number">0</span>) &#123;</span><br><span class="line">		write(<span class="number">1</span>, &amp;c, <span class="number">1</span>);</span><br><span class="line">	&#125;</span><br><span class="line">	close(fd);</span><br><span class="line">	<span class="built_in">exit</span>(<span class="number">0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<h2 id="标准I-O"><a href="#标准I-O" class="headerlink" title="标准I/O"></a>标准I/O</h2><p>C语言中提供了标准的I/O库，里面定义了一组高级的输入输出函数。例如：</p>
+<ul>
+<li>打开和关闭文件的<code>fopen</code>和<code>fclose</code></li>
+<li>读和写字节的<code>fread</code>和<code>fwrite</code></li>
+<li>读和写字符串的<code>fgets</code>和<code>fputs</code></li>
+<li>从流中格式化读取和写入的<code>fscanf</code>和<code>fprintf</code></li>
+<li>以及<code>printf</code>、<code>scanf</code>、<code>fprintf</code>等等。</li>
+</ul>
+<p>标准I/O库将打开的文件模型化成一个流，一个流是一个指向<code>FILE</code>结构体的指针。另外，每一个ASCI C程序在开始时都打开三个流<code>stdin</code>、<code>stdout</code>和<code>stderr</code>。</p>
+<p><code>FILE</code>流是对文件描述符和流缓冲区的抽象，因为缓冲区的存在，提高了读取文件的性能。但是标准I/O也不是完美的，也正是由于某些缓冲区的存在，使得标准I/O在网络I/O方面出现短板。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>以上，主要讨论了如下几个I/O相关的接口：</p>
+<ul>
+<li>用于打开和关闭文件的<code>open</code>和<code>close</code></li>
+<li>用于读取和写入文件的<code>read</code>和<code>write</code></li>
+<li>用于读取文件元数据的<code>stat</code>和<code>fstat</code>，以及判断文件类型的宏谓词</li>
+<li>用于读取目录的<code>opendir</code>、<code>readdir</code>和<code>closedir</code></li>
+<li>C语言提供给我们的更加高级别的I/O接口</li>
+</ul>
+<hr>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/Linux/" rel="tag"># Linux</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/10/14/make%E5%B7%A5%E5%85%B7%E7%AE%80%E4%BB%8B/" rel="prev" title="make工具简介">
+      <i class="fa fa-chevron-left"></i> make工具简介
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/10/19/%E5%81%A5%E5%A3%AE%E7%9A%84I-O-RIO/" rel="next" title="健壮的I/O(RIO)">
+      健壮的I/O(RIO) <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#Linux%E6%96%87%E4%BB%B6%E7%9A%84%E5%88%86%E7%B1%BB"><span class="nav-number">1.</span> <span class="nav-text">Linux文件的分类</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%87%E4%BB%B6%E7%9A%84%E6%89%93%E5%BC%80%E4%B8%8E%E5%85%B3%E9%97%AD"><span class="nav-number">2.</span> <span class="nav-text">文件的打开与关闭</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%96%87%E4%BB%B6%E7%9A%84%E8%AF%BB%E5%86%99"><span class="nav-number">3.</span> <span class="nav-text">文件的读写</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%BB%E5%86%99%E6%96%87%E4%BB%B6%E7%9A%84%E5%85%83%E6%95%B0%E6%8D%AE"><span class="nav-number">4.</span> <span class="nav-text">读写文件的元数据</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E8%AF%BB%E5%8F%96%E7%9B%AE%E5%BD%95%E5%86%85%E5%AE%B9"><span class="nav-number">5.</span> <span class="nav-text">读取目录内容</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#I-O%E9%87%8D%E5%AE%9A%E5%90%91"><span class="nav-number">6.</span> <span class="nav-text">I&#x2F;O重定向</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%87%E5%87%86I-O"><span class="nav-number">7.</span> <span class="nav-text">标准I&#x2F;O</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">8.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>

@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.4.0">
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+<link rel="stylesheet" href="/lib/font-awesome/css/all.min.css">
+
+<script id="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"mingliangliu.com","root":"/","scheme":"Mist","version":"7.8.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12,"onmobile":false},"copycode":{"enable":false,"show_result":false,"style":null},"back2top":{"enable":true,"sidebar":false,"scrollpercent":false},"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"algolia":{"hits":{"per_page":10},"labels":{"input_placeholder":"Search for Posts","hits_empty":"We didn't find any results for the search: ${query}","hits_stats":"${hits} results found in ${time} ms"}},"localsearch":{"enable":false,"trigger":"auto","top_n_per_article":1,"unescape":false,"preload":false},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"slideDownIn","post_body":"slideDownIn","coll_header":"slideLeftIn","sidebar":"slideUpIn"}}};
+  </script>
+
+  <meta name="description" content="前言C语言的过程调用机制（即函数之间的调用）的一个关键特性（起始大多数编程语言也是如此）都是使用了栈数据结构提供的后进先出的内存管理原则。每一个函数的栈空间被称为栈帧，一个栈帧上包含了保存的寄存器、分配给局部变量的空间以及传递给要调用函数的参数等等。一个基本的栈结构如下图所示：    但是，有一点需要引起注意的是，过程调用的参数是通过栈来传递的，并且分配的局部变量也在栈上，那么对于不同字节长度的参">
+<meta property="og:type" content="article">
+<meta property="og:title" content="x86_64 Linux 运行时栈的字节对齐">
+<meta property="og:url" content="https://mingliangliu.com/2019/08/11/x86-64-Linux-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%90/index.html">
+<meta property="og:site_name" content="清欢&#39;s Blog">
+<meta property="og:description" content="前言C语言的过程调用机制（即函数之间的调用）的一个关键特性（起始大多数编程语言也是如此）都是使用了栈数据结构提供的后进先出的内存管理原则。每一个函数的栈空间被称为栈帧，一个栈帧上包含了保存的寄存器、分配给局部变量的空间以及传递给要调用函数的参数等等。一个基本的栈结构如下图所示：    但是，有一点需要引起注意的是，过程调用的参数是通过栈来传递的，并且分配的局部变量也在栈上，那么对于不同字节长度的参">
+<meta property="og:locale" content="zh_CN">
+<meta property="og:image" content="https://mingliangliu.com/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%901.jpg">
+<meta property="og:image" content="https://mingliangliu.com/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%902.png">
+<meta property="og:image" content="https://mingliangliu.com/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%903.png">
+<meta property="og:image" content="https://mingliangliu.com/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%904.png">
+<meta property="article:published_time" content="2019-08-10T16:02:09.000Z">
+<meta property="article:modified_time" content="2021-04-29T05:47:10.404Z">
+<meta property="article:author" content="清欢">
+<meta property="article:tag" content="汇编">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="https://mingliangliu.com/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%901.jpg">
+
+<link rel="canonical" href="https://mingliangliu.com/2019/08/11/x86-64-Linux-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%90/">
+
+
+<script id="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'zh-CN'
+  };
+</script>
+
+  <title>x86_64 Linux 运行时栈的字节对齐 | 清欢's Blog</title>
+  
+
+
+
+
+
+
+  <noscript>
+  <style>
+  .use-motion .brand,
+  .use-motion .menu-item,
+  .sidebar-inner,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line-before i { left: initial; }
+  .use-motion .logo-line-after i { right: initial; }
+  </style>
+</noscript>
+
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage">
+  <div class="container use-motion">
+    <div class="headband"></div>
+
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="切换导航栏">
+      <span class="toggle-line toggle-line-first"></span>
+      <span class="toggle-line toggle-line-middle"></span>
+      <span class="toggle-line toggle-line-last"></span>
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <span class="logo-line-before"><i></i></span>
+      <h1 class="site-title">清欢's Blog</h1>
+      <span class="logo-line-after"><i></i></span>
+    </a>
+      <p class="site-subtitle" itemprop="description">一个被遗忘的笔记本</p>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+<nav class="site-nav">
+  <ul id="menu" class="main-menu menu">
+        <li class="menu-item menu-item-home">
+
+    <a href="/" rel="section"><i class="fa fa-home fa-fw"></i>首页</a>
+
+  </li>
+        <li class="menu-item menu-item-about">
+
+    <a href="/about/" rel="section"><i class="fa fa-user fa-fw"></i>关于</a>
+
+  </li>
+        <li class="menu-item menu-item-tags">
+
+    <a href="/tags/" rel="section"><i class="fa fa-tags fa-fw"></i>标签</a>
+
+  </li>
+        <li class="menu-item menu-item-categories">
+
+    <a href="/categories/" rel="section"><i class="fa fa-th fa-fw"></i>分类</a>
+
+  </li>
+        <li class="menu-item menu-item-archives">
+
+    <a href="/archives/" rel="section"><i class="fa fa-archive fa-fw"></i>归档</a>
+
+  </li>
+        <li class="menu-item menu-item-sitemap">
+
+    <a href="/sitemap.xml" rel="section"><i class="fa fa-sitemap fa-fw"></i>站点地图</a>
+
+  </li>
+  </ul>
+</nav>
+
+
+
+
+</div>
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+
+    <main class="main">
+      <div class="main-inner">
+        <div class="content-wrap">
+          
+
+          <div class="content post posts-expand">
+            
+
+    
+  
+  
+  <article itemscope itemtype="http://schema.org/Article" class="post-block" lang="zh-CN">
+    <link itemprop="mainEntityOfPage" href="https://mingliangliu.com/2019/08/11/x86-64-Linux-%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%90/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.png">
+      <meta itemprop="name" content="清欢">
+      <meta itemprop="description" content="一个被遗忘的笔记本">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="清欢's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          x86_64 Linux 运行时栈的字节对齐
+        </h1>
+
+        <div class="post-meta">
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-calendar"></i>
+              </span>
+              <span class="post-meta-item-text">发表于</span>
+
+              <time title="创建时间：2019-08-11 00:02:09" itemprop="dateCreated datePublished" datetime="2019-08-11T00:02:09+08:00">2019-08-11</time>
+            </span>
+              <span class="post-meta-item">
+                <span class="post-meta-item-icon">
+                  <i class="far fa-calendar-check"></i>
+                </span>
+                <span class="post-meta-item-text">更新于</span>
+                <time title="修改时间：2021-04-29 13:47:10" itemprop="dateModified" datetime="2021-04-29T13:47:10+08:00">2021-04-29</time>
+              </span>
+            <span class="post-meta-item">
+              <span class="post-meta-item-icon">
+                <i class="far fa-folder"></i>
+              </span>
+              <span class="post-meta-item-text">分类于</span>
+                <span itemprop="about" itemscope itemtype="http://schema.org/Thing">
+                  <a href="/categories/%E6%B1%87%E7%BC%96/" itemprop="url" rel="index"><span itemprop="name">汇编</span></a>
+                </span>
+            </span>
+
+          
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+
+      
+        <h2 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h2><p>C语言的过程调用机制（即函数之间的调用）的一个关键特性（起始大多数编程语言也是如此）都是使用了栈数据结构提供的后进先出的内存管理原则。每一个函数的栈空间被称为栈帧，一个栈帧上包含了保存的寄存器、分配给局部变量的空间以及传递给要调用函数的参数等等。一个基本的栈结构如下图所示：</p>
+<img src="/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%901.jpg" class="">
+
+
+<p>但是，有一点需要引起注意的是，过程调用的参数是通过栈来传递的，并且分配的局部变量也在栈上，那么对于不同字节长度的参数或变量，是如何在栈上为它们分配空间的？这里所涉及的就是我们要探讨的字节对齐。</p>
+<p>本文示例用到的环境如下：</p>
+<ul>
+<li>Ubuntu x86_64 GNU/Linux</li>
+<li>gcc 7.4.0</li>
+</ul>
+<h2 id="数据对齐"><a href="#数据对齐" class="headerlink" title="数据对齐"></a>数据对齐</h2><p>许多计算机系统对基本数据类型的合法地址做了一些限制，要求某种类型对象的地址必须是某个值K的倍数，其中K具体如下图。这种对齐限制简化了形成处理器和内存系统之间接口的硬件设计。举个实际的例子：比如我们在内存中读取一个8字节长度的变量，那么这个变量所在的地址必须是8的倍数。如果这个变量所在的地址是8的倍数，那么就可以通过一次内存操作完成该变量的读取。倘若这个变量所在的地址并不是8的倍数，那么可能就需要执行两次内存读取，因为该变量被放在两个8字节的内存块中了。</p>
+<table>
+<thead>
+<tr>
+<th align="center">K</th>
+<th align="center">类型</th>
+</tr>
+</thead>
+<tbody><tr>
+<td align="center">1</td>
+<td align="center">char</td>
+</tr>
+<tr>
+<td align="center">2</td>
+<td align="center">short</td>
+</tr>
+<tr>
+<td align="center">4</td>
+<td align="center">int, float</td>
+</tr>
+<tr>
+<td align="center">8</td>
+<td align="center">long,double,char*</td>
+</tr>
+</tbody></table>
+<p>无论数据是否对齐，x86_64硬件都能正常工作，但是却会降低系统的性能，所以我们的编译器在编译时一般会为我们实施数据对齐。</p>
+<h2 id="栈的字节对齐"><a href="#栈的字节对齐" class="headerlink" title="栈的字节对齐"></a>栈的字节对齐</h2><p>栈的字节对齐，实际是指栈顶指针必须须是16字节的整数倍。栈对齐帮助在尽可能少的内存访问周期内读取数据，不对齐堆栈指针可能导致严重的性能下降。</p>
+<p>上文我们说，即使数据没有对齐，我们的程序也是可以执行的，只是效率有点低而已，但是某些型号的Intel和AMD处理器对于有些实现多媒体操作的SSE指令，如果数据没有对齐的话，就无法正确执行。这些指令对16字节内存进行操作，在SSE单元和内存之间传送数据的指令要求内存地址必须是16的倍数。</p>
+<p>因此，任何针对x86_64处理器的编译器和运行时系统都必须保证分配用来保存可能会被SSE寄存器读或写的数据结构的内存，都必须是16字节对齐的，这就形成了一种标准：</p>
+<ul>
+<li>任何内存分配函数（alloca, malloc, calloc或realloc）生成的块起始地址都必须是16的倍数。</li>
+<li>大多数函数的栈帧的边界都必须是16直接的倍数。</li>
+</ul>
+<p>如上，在运行时栈中，不仅传递的参数和局部变量要满足字节对齐，我们的栈指针（%rsp）也必须是16的倍数。</p>
+<h2 id="三个示例"><a href="#三个示例" class="headerlink" title="三个示例"></a>三个示例</h2><p>我们用三个实际的例子来看一看为了实现数据对齐和栈字节对齐，栈空间的分配具体是怎样的。</p>
+<p>如下是CSAPP上的一个示例程序。</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">proc</span><span class="params">(<span class="keyword">long</span>  a1, <span class="keyword">long</span>  *a1p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">int</span>   a2, <span class="keyword">int</span>   *a2p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">short</span> a3, <span class="keyword">short</span> *a3p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">char</span>  a4, <span class="keyword">char</span>  *a4p)</span> </span>&#123;</span><br><span class="line">    *a1p += a1;</span><br><span class="line">    *a2p += a2;</span><br><span class="line">    *a3p += a3;</span><br><span class="line">    *a4p += a4;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">call_proc</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">long</span>  x1 = <span class="number">1</span>; <span class="keyword">int</span>  x2 = <span class="number">2</span>;</span><br><span class="line">    <span class="keyword">short</span> x3 = <span class="number">3</span>; <span class="keyword">char</span> x4 = <span class="number">4</span>;</span><br><span class="line">    proc(x1, &amp;x1, x2, &amp;x2, x3, &amp;x3, x4, x4);</span><br><span class="line">    <span class="keyword">return</span> (x1+x2)*(x3+x4);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p>使用如下命令进行编译和反编译：</p>
+<figure class="highlight bash"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">$ gcc -Og -fno-stack-protector -c call_proc.c</span><br><span class="line">$ objdump -d call_proc.o</span><br></pre></td></tr></table></figure>
+<p>其中<code>-fno-stack-protector</code>参数指示编译器不添加栈保护者机制</p>
+<p>生成的汇编代码如下，这里我们仅看<code>call_proc()</code>中的栈空间分配</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br></pre></td><td class="code"><pre><span class="line">0000000000000015 &lt;call_proc&gt;:</span><br><span class="line">  15:   48 83 ec 10             sub    $0x10,%rsp</span><br><span class="line">  19:   48 c7 44 24 08 01 00    movq   $0x1,0x8(%rsp)</span><br><span class="line">  20:   00 00 </span><br><span class="line">  22:   c7 44 24 04 02 00 00    movl   $0x2,0x4(%rsp)</span><br><span class="line">  29:   00 </span><br><span class="line">  2a:   66 c7 44 24 02 03 00    movw   $0x3,0x2(%rsp)</span><br><span class="line">  31:   c6 44 24 01 04          movb   $0x4,0x1(%rsp)</span><br><span class="line">  36:   48 8d 4c 24 04          lea    0x4(%rsp),%rcx</span><br><span class="line">  3b:   48 8d 74 24 08          lea    0x8(%rsp),%rsi</span><br><span class="line">  40:   48 8d 44 24 01          lea    0x1(%rsp),%rax</span><br><span class="line">  45:   50                      push   %rax</span><br><span class="line">  46:   6a 04                   pushq  $0x4</span><br><span class="line">  48:   4c 8d 4c 24 12          lea    0x12(%rsp),%r9</span><br><span class="line">  4d:   41 b8 03 00 00 00       mov    $0x3,%r8d</span><br><span class="line">  53:   ba 02 00 00 00          mov    $0x2,%edx</span><br><span class="line">  58:   bf 01 00 00 00          mov    $0x1,%edi</span><br><span class="line">  5d:   e8 00 00 00 00          callq  62 &lt;call_proc+0x4d&gt;</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
+
+<p>15行（我们具体以代码中给出的行号，其实这些数字应该是指令的起始位置，姑且就这样叫吧）中先将%rsp减去0x10，为4个局部变量共分配了16个字节的空间，并且在45和46行，程序将%rax和$0x4入栈，联系该函数的C语言程序和汇编程序中的具体操作，不难知，栈上的具体空间分配如下图所示：</p>
+<img src="/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%902.png" class="">
+
+<p>图中，为了使栈字节对齐，4单独占用了一个8字节的空间，并且栈中的每一个类型的变量，都符合数据对齐的要求。</p>
+<p>如果我们的参数8占用的字节数减少，会不会减少栈空间的占用呢？我们将上面的C语言程序的稍微改一改，如下：</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">proc</span><span class="params">(<span class="keyword">long</span>  a1, <span class="keyword">long</span>  *a1p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">int</span>   a2, <span class="keyword">int</span>   *a2p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">short</span> a3, <span class="keyword">short</span> *a3p,</span></span></span><br><span class="line"><span class="function"><span class="params">          <span class="keyword">char</span>  a4, <span class="keyword">char</span> a5)</span> </span>&#123;  <span class="comment">// char *a4p改为了char a5</span></span><br><span class="line">    *a1p += a1;</span><br><span class="line">    *a2p += a2;</span><br><span class="line">    *a3p += a3;</span><br><span class="line">    a5 += a4;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">long</span> <span class="title">call_proc</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">    <span class="keyword">long</span>  x1 = <span class="number">1</span>; <span class="keyword">int</span>  x2 = <span class="number">2</span>;</span><br><span class="line">    <span class="keyword">short</span> x3 = <span class="number">3</span>; <span class="keyword">char</span> x4 = <span class="number">4</span>;</span><br><span class="line">    proc(x1, &amp;x1, x2, &amp;x2, x3, &amp;x3, x4, x4);  <span class="comment">// 相应的改变了最后一个参数</span></span><br><span class="line">    <span class="keyword">return</span> (x1+x2)*(x3+x4);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+
+<p><code>call_proc()</code>的汇编如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line">000000000000000a &lt;call_proc&gt;:</span><br><span class="line">   a:   48 83 ec 10             sub    $0x10,%rsp</span><br><span class="line">   e:   48 c7 44 24 08 01 00    movq   $0x1,0x8(%rsp)</span><br><span class="line">  15:   00 00 </span><br><span class="line">  17:   c7 44 24 04 02 00 00    movl   $0x2,0x4(%rsp)</span><br><span class="line">  1e:   00 </span><br><span class="line">  1f:   66 c7 44 24 02 03 00    movw   $0x3,0x2(%rsp)</span><br><span class="line">  26:   48 8d 4c 24 04          lea    0x4(%rsp),%rcx</span><br><span class="line">  2b:   48 8d 74 24 08          lea    0x8(%rsp),%rsi</span><br><span class="line">  30:   6a 04                   pushq  $0x4</span><br><span class="line">  32:   6a 04                   pushq  $0x4</span><br><span class="line">  34:   4c 8d 4c 24 12          lea    0x12(%rsp),%r9</span><br><span class="line">  39:   41 b8 03 00 00 00       mov    $0x3,%r8d</span><br><span class="line">  3f:   ba 02 00 00 00          mov    $0x2,%edx</span><br><span class="line">  44:   bf 01 00 00 00          mov    $0x1,%edi</span><br><span class="line">  49:   e8 00 00 00 00          callq  4e &lt;call_proc+0x44&gt;</span><br><span class="line">  ...</span><br></pre></td></tr></table></figure>
+
+<p>对照程序，栈的空间结构编程的如下如所示：</p>
+<img src="/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%903.png" class="">
+
+<p>我们发现，栈空间的占用并没有减少，为了能够达到栈字节对齐的目的，参数8和参数7各占一个8字节的空间，该过程调用浪费了1 + 7 + 7 = 15字节的空间。但为了兼容性和效率，这是值得的。</p>
+<p>我们再看另一个程序，当我们在栈中分配字符串时又是怎样的呢？</p>
+<figure class="highlight c"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">function</span><span class="params">(<span class="keyword">int</span> a, <span class="keyword">int</span> b, <span class="keyword">int</span> c)</span> </span>&#123;</span><br><span class="line">       <span class="keyword">char</span> buffer1[<span class="number">5</span>];</span><br><span class="line">       <span class="keyword">char</span> buffer2[<span class="number">10</span>];</span><br><span class="line">       <span class="built_in">strcpy</span>(buffer2, buffer1);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span> </span>&#123;</span><br><span class="line">        function(<span class="number">1</span>,<span class="number">2</span>,<span class="number">3</span>);</span><br><span class="line"></span><br></pre></td></tr></table></figure>
+
+<p>使用<code>gcc -fno-stack-protector -o foo foo.c</code>和<code>objdump -d foo</code>进行编译和反编译后，<code>function()</code>的汇编代码如下：</p>
+<figure class="highlight plain"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br></pre></td><td class="code"><pre><span class="line">000000000000064a &lt;function&gt;:</span><br><span class="line"> 64a:	55                   	push   %rbp</span><br><span class="line"> 64b:	48 89 e5             	mov    %rsp,%rbp</span><br><span class="line"> 64e:	48 83 ec 20          	sub    $0x20,%rsp</span><br><span class="line"> 652:	89 7d ec             	mov    %edi,-0x14(%rbp)</span><br><span class="line"> 655:	89 75 e8             	mov    %esi,-0x18(%rbp)</span><br><span class="line"> 658:	89 55 e4             	mov    %edx,-0x1c(%rbp)</span><br><span class="line"> 65b:	48 8d 55 fb          	lea    -0x5(%rbp),%rdx</span><br><span class="line"> 65f:	48 8d 45 f1          	lea    -0xf(%rbp),%rax</span><br><span class="line"> 663:	48 89 d6             	mov    %rdx,%rsi</span><br><span class="line"> 666:	48 89 c7             	mov    %rax,%rdi</span><br><span class="line"> 669:	e8 b2 fe ff ff       	callq  520 &lt;strcpy@plt&gt;</span><br><span class="line"> 66e:	90                   	nop</span><br><span class="line"> 66f:	c9                   	leaveq </span><br><span class="line"> 670:	c3                   	retq</span><br></pre></td></tr></table></figure>
+
+<p>该过程共在栈上分配了32个字节的空间，其中包括两个字符串的空间和三个函数的参数的空间，这里需要提一下的是，尽管再x64下，函数的前6个参数直接用寄存器进行传递，但是有时候程序需要用到参数的地址，这个时候程序就不的不在栈上为参数分配内存并将参数拷贝到内存上，来满足程序对参数地址的操作。</p>
+<p>联系程序，该过程的栈结构如下：</p>
+<img src="/images/%E8%BF%90%E8%A1%8C%E6%97%B6%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%904.png" class="">
+
+<p>图中，因为char类型的地址可以从任意地址开始（地址为1的倍数），所以buffer1和buffer2是连续分配的，而三个int型变量则分配在了两个单独的8字节空间中。</p>
+<h2 id="小结"><a href="#小结" class="headerlink" title="小结"></a>小结</h2><p>以上，我们看到，为了满足数据对齐和栈字节对齐的要求，或者说规范，编译器不惜牺牲了部分内存，这使得程序提高了兼容性，也提高了程序的性能。</p>
+<hr>
+<p>完</p>
+<p>参考：</p>
+<ul>
+<li>《深入理解计算机系统》</li>
+<li><a target="_blank" rel="noopener" href="https://www.twblogs.net/a/5b8047b92b71772165a6bdd2/zh-cn">C函数调用过程解析(x86-64)</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+      <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/%E6%B1%87%E7%BC%96/" rel="tag"># 汇编</a>
+          </div>
+
+        
+
+
+        
+    <div class="post-nav">
+      <div class="post-nav-item">
+    <a href="/2019/08/10/%E4%BF%9D%E6%8A%A4%E6%A8%A1%E5%BC%8F%E7%89%B9%E6%9D%83%E7%BA%A7%E6%A6%82%E8%BF%B0/" rel="prev" title="保护模式特权级概述">
+      <i class="fa fa-chevron-left"></i> 保护模式特权级概述
+    </a></div>
+      <div class="post-nav-item">
+    <a href="/2019/09/02/Linux%E7%B3%BB%E7%BB%9F%E8%B0%83%E7%94%A8%E8%A1%A8%EF%BC%88x86-64%EF%BC%89/" rel="next" title="Linux系统调用表（x86_64）">
+      Linux系统调用表（x86_64） <i class="fa fa-chevron-right"></i>
+    </a></div>
+    </div>
+      </footer>
+    
+  </article>
+  
+  
+  
+
+
+
+          </div>
+          
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      let activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      let commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+
+        </div>
+          
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line toggle-line-first"></span>
+    <span class="toggle-line toggle-line-middle"></span>
+    <span class="toggle-line toggle-line-last"></span>
+  </div>
+
+  <aside class="sidebar">
+    <div class="sidebar-inner">
+
+      <ul class="sidebar-nav motion-element">
+        <li class="sidebar-nav-toc">
+          文章目录
+        </li>
+        <li class="sidebar-nav-overview">
+          站点概览
+        </li>
+      </ul>
+
+      <!--noindex-->
+      <div class="post-toc-wrap sidebar-panel">
+          <div class="post-toc motion-element"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%89%8D%E8%A8%80"><span class="nav-number">1.</span> <span class="nav-text">前言</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%95%B0%E6%8D%AE%E5%AF%B9%E9%BD%90"><span class="nav-number">2.</span> <span class="nav-text">数据对齐</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E6%A0%88%E7%9A%84%E5%AD%97%E8%8A%82%E5%AF%B9%E9%BD%90"><span class="nav-number">3.</span> <span class="nav-text">栈的字节对齐</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E4%B8%89%E4%B8%AA%E7%A4%BA%E4%BE%8B"><span class="nav-number">4.</span> <span class="nav-text">三个示例</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%B0%8F%E7%BB%93"><span class="nav-number">5.</span> <span class="nav-text">小结</span></a></li></ol></div>
+      </div>
+      <!--/noindex-->
+
+      <div class="site-overview-wrap sidebar-panel">
+        <div class="site-author motion-element" itemprop="author" itemscope itemtype="http://schema.org/Person">
+    <img class="site-author-image" itemprop="image" alt="清欢"
+      src="/images/avatar.png">
+  <p class="site-author-name" itemprop="name">清欢</p>
+  <div class="site-description" itemprop="description">一个被遗忘的笔记本</div>
+</div>
+<div class="site-state-wrap motion-element">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives/">
+        
+          <span class="site-state-item-count">19</span>
+          <span class="site-state-item-name">日志</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-categories">
+            <a href="/categories/">
+          
+        <span class="site-state-item-count">8</span>
+        <span class="site-state-item-name">分类</span></a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+          
+        <span class="site-state-item-count">11</span>
+        <span class="site-state-item-name">标签</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+      </div>
+
+    </div>
+  </aside>
+  <div id="sidebar-dimmer"></div>
+
+
+      </div>
+    </main>
+
+    <footer class="footer">
+      <div class="footer-inner">
+        
+
+        
+
+<div class="copyright">
+  
+  &copy; 
+  <span itemprop="copyrightYear">2021</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">清欢</span>
+</div>
+  <div class="powered-by">由 <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://mist.theme-next.org/" class="theme-link" rel="noopener" target="_blank">NexT.Mist</a> 强力驱动
+  </div>
+
+        
+
+
+
+
+
+
+
+
+      </div>
+    </footer>
+  </div>
+
+  
+  <script src="/lib/anime.min.js"></script>
+  <script src="/lib/velocity/velocity.min.js"></script>
+  <script src="/lib/velocity/velocity.ui.min.js"></script>
+
+<script src="/js/utils.js"></script>
+
+<script src="/js/motion.js"></script>
+
+
+<script src="/js/schemes/muse.js"></script>
+
+
+<script src="/js/next-boot.js"></script>
+
+
+
+
+  
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  
+
+  
+
+  
+
+</body>
+</html>
